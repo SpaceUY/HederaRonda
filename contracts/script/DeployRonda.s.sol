@@ -22,6 +22,7 @@ contract DeployRonda is Script {
         interestDistribution[2] = -3; // -3%
 
         address paymentToken = address(0x0000000000000000000000000000000000000000);
+        address penaltyToken = address(0x0000000000000000000000000000000000000000);
         
         // Chainlink VRF parameters
         address vrfCoordinator = address(0x0000000000000000000000000000000000000000); // Replace with actual VRF coordinator
@@ -36,6 +37,7 @@ contract DeployRonda is Script {
             entryFee,
             interestDistribution,
             paymentToken,
+            penaltyToken,
             vrfCoordinator,
             subscriptionId,
             keyHash,

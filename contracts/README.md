@@ -1,66 +1,134 @@
-## Foundry
+# Ronda Smart Contract
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A decentralized savings circle (Ronda) implementation using Solidity and Chainlink VRF for fair participant selection.
 
-Foundry consists of:
+## Overview
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+Ronda is a smart contract that implements a traditional savings circle (also known as a "Ronda" or "Tanda") on the blockchain. It uses Chainlink VRF (Verifiable Random Function) to ensure fair and transparent participant selection.
 
-## Documentation
+### Key Features
 
-https://book.getfoundry.sh/
+- Decentralized savings circle implementation
+- Fair participant selection using Chainlink VRF
+- Interest distribution mechanism
+- Entry fee system
+- Milestone-based deposits
+- Emergency abort functionality
 
-## Usage
+## Technical Requirements
 
-### Build
+- Solidity ^0.8.20
+- Foundry
+- Chainlink VRF v2
+- OpenZeppelin Contracts
 
-```shell
-$ forge build
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/chainlinkronda.git
+cd chainlinkronda
 ```
 
-### Test
-
-```shell
-$ forge test
+2. Install dependencies:
+```bash
+forge install
 ```
 
-### Format
+## Development
 
-```shell
-$ forge fmt
+### Compile Contracts
+
+```bash
+forge build
 ```
 
-### Gas Snapshots
+### Run Tests
 
-```shell
-$ forge snapshot
+```bash
+forge test
 ```
 
-### Anvil
+### Run Tests with Coverage
 
-```shell
-$ anvil
+```bash
+forge coverage
 ```
 
-### Deploy
+## Deployment
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+1. Create a `.env` file with the following variables:
+```env
+PRIVATE_KEY=your_private_key
+RPC_URL=your_rpc_url
+ETHERSCAN_API_KEY=your_etherscan_api_key
 ```
 
-### Cast
-
-```shell
-$ cast <subcommand>
+2. Deploy the contract:
+```bash
+forge script script/DeployRonda.s.sol --rpc-url $RPC_URL --broadcast --verify
 ```
 
-### Help
+### Required Parameters
 
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+When deploying, you'll need to provide:
+- `participantCount`: Number of participants in the Ronda
+- `milestoneCount`: Number of milestones/deposits
+- `monthlyDeposit`: Amount to deposit per milestone
+- `entryFee`: One-time entry fee
+- `interestDistribution`: Array of interest rates per milestone (must sum to 0)
+- `paymentToken`: ERC20 token address for payments
+- Chainlink VRF parameters:
+  - `vrfCoordinator`: Chainlink VRF Coordinator address
+  - `subscriptionId`: Your Chainlink VRF subscription ID
+  - `keyHash`: Chainlink VRF key hash
+  - `callbackGasLimit`: Gas limit for VRF callback
+
+## Contract Architecture
+
+### Main Contract: Ronda.sol
+
+The main contract implements the core Ronda functionality:
+
+- Participant management
+- Deposit handling
+- Interest distribution
+- Random participant selection
+- State management
+
+### Key Functions
+
+- `joinRonda()`: Join the Ronda (requires entry fee)
+- `deposit(uint256 milestone)`: Make a deposit for a specific milestone
+- `deliverRonda(uint256 milestone)`: Distribute funds for a milestone
+- `abortRonda()`: Emergency function to abort the Ronda
+
+## Testing
+
+The test suite includes:
+- Basic joining functionality
+- Deposit and delivery mechanisms
+- Interest distribution validation
+- Emergency abort functionality
+- VRF integration tests
+
+## Security Considerations
+
+- Entry fee is required only upon joining
+- Interest distribution must sum to zero
+- Emergency abort function for safety
+- VRF for fair participant selection
+- Reentrancy protection
+- Access control for critical functions
+
+## License
+
+MIT
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request 

@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@chainlink/contracts/vrf/VRFConsumerBaseV2.sol";
 import "@chainlink/contracts/vrf/interfaces/VRFCoordinatorV2Interface.sol";
+import "./RondaSBT.sol";
 
 contract Ronda is Ownable, VRFConsumerBaseV2 {
     using SafeERC20 for IERC20;
@@ -40,6 +41,7 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
     int256[] public interestDistribution;
     IERC20 public paymentToken;
     address[] private joinedParticipants;
+    RondaSBT public penaltyToken;
     uint256 private vrfRequestId;
 
     // Mappings
@@ -54,6 +56,7 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
     event RondaDelivered(address indexed participant, uint256 milestone);
     event RandomnessRequested();
     event SlotsAssigned(address[] participants, uint256[] slots);
+    event PenaltyIssued(address indexed participant, uint256 milestone);
 
     constructor(
         uint256 _participantCount,
@@ -62,6 +65,7 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
         uint256 _entryFee,
         int256[] memory _interestDistribution,
         address _paymentToken,
+        address _penaltyToken,
         address _vrfCoordinator,
         uint64 _subscriptionId,
         bytes32 _keyHash,
@@ -86,6 +90,7 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
         entryFee = _entryFee;
         interestDistribution = _interestDistribution;
         paymentToken = IERC20(_paymentToken);
+        penaltyToken = RondaSBT(_penaltyToken);
         _changeState(RondaState.Open);
 
         // Initialize VRF variables
@@ -162,9 +167,11 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
     }
 
     function deliverRonda(uint256 _milestone) external onlyOwner onlyRunning {
-        require(currentState == RondaState.Running, "Ronda is not running");
         require(_milestone < milestoneCount, "Invalid milestone");
-        require(milestones[_milestone].isComplete, "Milestone not complete");
+        bool penaltyIssued = _checkAndIssuePenalties(_milestone);
+        if (penaltyIssued) {
+            return;
+        }
 
         address participant = slotToParticipant[_milestone];
         require(participant != address(0), "No participant for this slot");
@@ -246,5 +253,26 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
         }
 
         emit SlotsAssigned(joinedParticipants, availableSlots);
+    }
+
+    // Function to check and issue penalties for non-paying participants
+    function _checkAndIssuePenalties(uint256 _milestone) internal returns (bool) {
+        require(_milestone < milestoneCount, "Invalid milestone");
+
+        bool penaltyIssued = false;
+        for (uint256 i = 0; i < participantCount; i++) {
+            address participant = slotToParticipant[i];
+            if (participant != address(0) && !participants[participant].milestonePaid[_milestone]) {
+                penaltyToken.mintPenalty(participant);
+                penaltyIssued = true;
+                emit PenaltyIssued(participant, _milestone);
+            }
+        }
+        return penaltyIssued;
+    }
+
+    // Function to remove penalty when participant pays their dues
+    function removePenalty(address _participant) external onlyOwner {
+        penaltyToken.burnPenalty(_participant);
     }
 } 
