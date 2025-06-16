@@ -35,6 +35,12 @@ cd chainlinkronda
 forge install
 ```
 
+3. Set up environment variables:
+```bash
+cp .env.example .env
+# Edit .env with your values
+```
+
 ## Development
 
 ### Compile Contracts
@@ -55,18 +61,56 @@ forge test
 forge coverage
 ```
 
-## Deployment
+## Setup
 
-1. Create a `.env` file with the following variables:
-```env
-PRIVATE_KEY=your_private_key
-RPC_URL=your_rpc_url
-ETHERSCAN_API_KEY=your_etherscan_api_key
+1. Set up environment variables:
+```bash
+cp .env.example .env
 ```
 
-2. Deploy the contract:
+
+2. Deploy the contracts:
 ```bash
-forge script script/DeployRonda.s.sol --rpc-url $RPC_URL --broadcast --verify
+# Deploy RondaFactory
+forge script script/DeployRondaFactory.s.sol:DeployRondaFactory --rpc-url $RPC_URL --broadcast --verify
+
+# Update .env with the deployed RondaFactory address
+# RONDA_FACTORY_ADDRESS=<deployed_address>
+# PENALTY_TOKEN_ADDRESS=<deployed_address>
+
+# Deploy RondaInstance
+forge script script/DeployRondaInstance.s.sol:DeployRondaInstance --rpc-url $RPC_URL --broadcast --verify
+
+```
+
+## Deployment
+
+### Local Testing with Anvil
+
+1. Start Anvil in a separate terminal:
+```bash
+anvil
+```
+
+
+2. Deploy the contracts in sequence:
+
+```bash
+# Deploy MockToken
+forge script script/DeployMockToken.s.sol:DeployMockToken --fork-url http://localhost:8545 --broadcast
+
+# Update .env with the deployed MockToken address
+# PAYMENT_TOKEN_ADDRESS=<deployed_address>
+
+# Deploy RondaFactory
+forge script script/DeployRondaFactory.s.sol:DeployRondaFactory --fork-url http://localhost:8545 --broadcast
+
+# Update .env with the deployed RondaFactory address
+# RONDA_FACTORY_ADDRESS=<deployed_address>
+# PENALTY_TOKEN_ADDRESS=<deployed_address>
+
+# Deploy a Ronda Instance
+forge script script/DeployRondaInstance.s.sol:DeployRondaInstance --fork-url http://localhost:8545 --broadcast
 ```
 
 ### Required Parameters
@@ -104,6 +148,13 @@ The main contract implements the core Ronda functionality:
 - `abortRonda()`: Emergency function to abort the Ronda
 
 ## Testing
+
+Run all test doing:
+
+bash
+```
+forge test
+```
 
 The test suite includes:
 - Basic joining functionality
