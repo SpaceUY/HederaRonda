@@ -2,9 +2,9 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/RondaFactory.sol";
-import "../src/Ronda.sol";
-import "../src/RondaSBT.sol";
+import {RondaFactory} from "../src/RondaFactory.sol";
+import {Ronda} from "../src/Ronda.sol";
+import {RondaSBT} from "../src/RondaSBT.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockERC20 is ERC20 {
@@ -21,6 +21,7 @@ contract RondaFactoryTest is Test {
     uint64 public subscriptionId = 1;
     bytes32 public keyHash = bytes32(uint256(1));
     uint32 public callbackGasLimit = 100000;
+    address public router = address(0x456);
 
     function setUp() public {
         penaltyToken = new RondaSBT();
@@ -30,7 +31,8 @@ contract RondaFactoryTest is Test {
             subscriptionId,
             keyHash,
             callbackGasLimit,
-            address(penaltyToken)
+            address(penaltyToken),
+            router
         );
 
         penaltyToken.addToWhitelist(address(factory));
@@ -43,6 +45,7 @@ contract RondaFactoryTest is Test {
         assertEq(factory.keyHash(), keyHash);
         assertEq(factory.callbackGasLimit(), callbackGasLimit);
         assertEq(address(factory.penaltyToken()), address(penaltyToken));
+        assertEq(factory.router(), router);
     }
 
     function test_CreateRonda() public {
@@ -226,5 +229,40 @@ contract RondaFactoryTest is Test {
         vm.prank(address(0x456));
         vm.expectRevert();
         penaltyToken.burnPenalty(participant);
+    }
+
+    function test_CCIPManagement() public {
+        // Create a Ronda instance
+        uint256 participantCount = 3;
+        uint256 milestoneCount = 3;
+        uint256 monthlyDeposit = 100 ether;
+        uint256 entryFee = 10 ether;
+        
+        int256[] memory interestDistribution = new int256[](milestoneCount);
+        interestDistribution[0] = 5;
+        interestDistribution[1] = -2;
+        interestDistribution[2] = -3;
+
+        factory.createRonda(
+            participantCount,
+            milestoneCount,
+            monthlyDeposit,
+            entryFee,
+            interestDistribution,
+            address(paymentToken)
+        );
+
+        // Test adding supported chain
+        uint64 chainSelector = 1;
+        address senderContract = address(0x789);
+        factory.addSupportedChain(0, chainSelector, senderContract);
+
+        // Test removing supported chain
+        factory.removeSupportedChain(0, chainSelector);
+
+        // Test non-owner cannot manage CCIP
+        vm.prank(address(0x123));
+        vm.expectRevert();
+        factory.addSupportedChain(0, chainSelector, senderContract);
     }
 } 

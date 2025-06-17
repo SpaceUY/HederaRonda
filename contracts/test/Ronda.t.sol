@@ -2,10 +2,10 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
-import "../src/Ronda.sol";
-import "../src/RondaSBT.sol";
-import "./MockToken.sol";
-import "@chainlink/contracts/vrf/interfaces/VRFCoordinatorV2Interface.sol";
+import {Ronda} from "../src/Ronda.sol";
+import {RondaSBT} from "../src/RondaSBT.sol";
+import {MockToken} from "./mocks/MockToken.sol";
+import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 
 contract MockVRFCoordinator {
     uint256 public lastRequestId;
@@ -31,6 +31,7 @@ contract RondaTest is Test {
     address alice = address(0x1);
     address bob = address(0x2);
     address carol = address(0x3);
+    address router = address(0x456);
 
     uint256 participantCount = 3;
     uint256 milestoneCount = 3;
@@ -66,7 +67,8 @@ contract RondaTest is Test {
             address(mockVRFCoordinator),
             subscriptionId,
             keyHash,
-            callbackGasLimit
+            callbackGasLimit,
+            router
         );
 
         // Add Ronda contract to whitelist
@@ -182,7 +184,8 @@ contract RondaTest is Test {
             address(mockVRFCoordinator),
             subscriptionId,
             keyHash,
-            callbackGasLimit
+            callbackGasLimit,
+            router
         );
     }
 
@@ -297,7 +300,8 @@ contract RondaTest is Test {
             address(mockVRFCoordinator),
             subscriptionId,
             keyHash,
-            callbackGasLimit
+            callbackGasLimit,
+            router
         );
 
         // Try to burn penalty token (should fail)

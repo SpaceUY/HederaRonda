@@ -4,11 +4,14 @@ pragma solidity ^0.8.20;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@chainlink/contracts/vrf/VRFConsumerBaseV2.sol";
-import "@chainlink/contracts/vrf/interfaces/VRFCoordinatorV2Interface.sol";
-import "./RondaSBT.sol";
+import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
+import {Client} from "chainlink-ccip/contracts/libraries/Client.sol";
+import "chainlink-ccip/contracts/applications/CCIPReceiver.sol";
+import "chainlink-ccip/contracts/interfaces/IRouterClient.sol";
+import {RondaSBT} from "./RondaSBT.sol";
 
-contract Ronda is Ownable, VRFConsumerBaseV2 {
+contract Ronda is Ownable, VRFConsumerBaseV2, CCIPReceiver {
     using SafeERC20 for IERC20;
 
     enum RondaState { Open, Running, Finalized, Aborted, Randomizing }
@@ -49,6 +52,10 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
     mapping(uint256 => Milestone) public milestones;
     mapping(uint256 => address) public slotToParticipant;
 
+    // CCIP variables
+    mapping(uint64 => bool) public supportedChains;
+    mapping(uint64 => address) public senderContracts;
+
     // Events
     event RondaStateChanged(RondaState newState);
     event ParticipantJoined(address indexed participant);
@@ -57,6 +64,10 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
     event RandomnessRequested();
     event SlotsAssigned(address[] participants, uint256[] slots);
     event PenaltyIssued(address indexed participant, uint256 milestone);
+
+    // Events for cross-chain functions
+    event CrossChainJoinRequested(address indexed participant, uint64 sourceChainSelector);
+    event CrossChainDepositRequested(address indexed participant, uint256 milestone, uint64 sourceChainSelector);
 
     constructor(
         uint256 _participantCount,
@@ -69,8 +80,11 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
         address _vrfCoordinator,
         uint64 _subscriptionId,
         bytes32 _keyHash,
-        uint32 _callbackGasLimit
-    ) Ownable(msg.sender) VRFConsumerBaseV2(_vrfCoordinator) {
+        uint32 _callbackGasLimit,
+        address _router
+    ) Ownable(msg.sender) 
+      VRFConsumerBaseV2(_vrfCoordinator)
+      CCIPReceiver(_router) {
         require(_participantCount > 0, "Participant count must be greater than 0");
         require(_milestoneCount > 0, "Milestone count must be greater than 0");
         require(_monthlyDeposit > 0, "Monthly deposit must be greater than 0");
@@ -109,8 +123,8 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
         }
     }
 
-    modifier onlyParticipant() {
-        require(participants[msg.sender].hasJoined, "Not a participant");
+    modifier onlyParticipant(address participant) {
+        require(participants[participant].hasJoined, "Not a participant");
         _;
     }
 
@@ -129,41 +143,16 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
         _;
     }
 
-    function joinRonda() external onlyOpen isWhitelisted(msg.sender) {
-        require(!hasParticipantJoined(msg.sender), "Already joined");
-
+    function joinRonda() external {
         // Transfer entry fee
         paymentToken.safeTransferFrom(msg.sender, address(this), entryFee);
-
-        // Update participant state
-        participants[msg.sender].hasJoined = true;
-        joinedParticipants.push(msg.sender);
-
-        emit ParticipantJoined(msg.sender);
-
-        // Check if ronda is full
-        if (joinedParticipants.length == participantCount) {
-            requestRandomness();
-        }
+        _joinRondaInternal(msg.sender);
     }
 
-    function deposit(uint256 _milestone) external onlyParticipant onlyRunning {
-        require(_milestone < milestoneCount, "Invalid milestone");
-        require(!participants[msg.sender].milestonePaid[_milestone], "Already paid for this milestone");
-
+    function deposit(uint256 milestone) external {
         // Transfer monthly deposit
         paymentToken.safeTransferFrom(msg.sender, address(this), monthlyDeposit);
-
-        // Update milestone state
-        participants[msg.sender].milestonePaid[_milestone] = true;
-        milestones[_milestone].totalDeposits++;
-
-        emit DepositMade(msg.sender, _milestone);
-
-        // Check if milestone is complete
-        if (milestones[_milestone].totalDeposits == milestones[_milestone].requiredDeposits) {
-            milestones[_milestone].isComplete = true;
-        }
+        _depositInternal(msg.sender, milestone);
     }
 
     function deliverRonda(uint256 _milestone) external onlyOwner onlyRunning {
@@ -274,5 +263,82 @@ contract Ronda is Ownable, VRFConsumerBaseV2 {
     // Function to remove penalty when participant pays their dues
     function removePenalty(address _participant) external onlyOwner {
         penaltyToken.burnPenalty(_participant);
+    }
+
+    // CCIP receiver function
+    function _ccipReceive(Client.Any2EVMMessage memory message) internal override {
+        // Verify the chain is supported
+        require(supportedChains[message.sourceChainSelector], "Chain not supported");
+
+        // Verify the sender contract is allowlisted
+        require(senderContracts[message.sourceChainSelector] == abi.decode(message.sender, (address)), "Invalid sender");
+
+        // Get the original sender from the source chain
+        address originalSender = abi.decode(message.sender, (address));
+
+        // Decode the function selector and parameters
+        (bytes4 selector, bytes memory params) = abi.decode(message.data, (bytes4, bytes));
+
+        if (selector == this.joinRonda.selector) {
+            _joinRondaInternal(originalSender);
+            emit CrossChainJoinRequested(originalSender, message.sourceChainSelector);
+        } else if (selector == this.deposit.selector) {
+            uint256 milestone = abi.decode(params, (uint256));
+            _depositInternal(originalSender, milestone);
+            emit CrossChainDepositRequested(originalSender, milestone, message.sourceChainSelector);
+        } else {
+            revert("Invalid function selector");
+        }
+    }
+
+    // Internal function to handle join logic
+    function _joinRondaInternal(address participant) internal onlyOpen isWhitelisted(participant) {
+        require(!hasParticipantJoined(participant), "Already joined");
+        
+        // Update participant state
+        participants[participant].hasJoined = true;
+        joinedParticipants.push(participant);
+
+        emit ParticipantJoined(participant);
+
+        // Check if ronda is full
+        if (joinedParticipants.length == participantCount) {
+            requestRandomness();
+        }
+    }
+
+    // Internal function to handle deposit logic
+    function _depositInternal(address participant, uint256 milestone) internal onlyParticipant(participant) onlyRunning {
+        require(participants[participant].hasJoined, "Not a participant");
+        require(currentState == RondaState.Running, "Ronda is not running");
+        require(milestone < milestoneCount, "Invalid milestone");
+        require(!participants[participant].milestonePaid[milestone], "Already paid for this milestone");
+
+        // Update milestone state
+        participants[participant].milestonePaid[milestone] = true;
+        milestones[milestone].totalDeposits++;
+
+        emit DepositMade(participant, milestone);
+
+        // Check if milestone is complete
+        if (milestones[milestone].totalDeposits == milestones[milestone].requiredDeposits) {
+            milestones[milestone].isComplete = true;
+        }
+    }
+
+    // Admin functions to manage CCIP configuration
+    modifier onlyOwnerOrFactory() {
+        require(msg.sender == owner() || Ownable(owner()).owner() == msg.sender, "Not authorized");
+        _;
+    }
+
+    function addSupportedChain(uint64 chainSelector, address senderContract) external onlyOwnerOrFactory {
+        supportedChains[chainSelector] = true;
+        senderContracts[chainSelector] = senderContract;
+    }
+
+    function removeSupportedChain(uint64 chainSelector) external onlyOwnerOrFactory {
+        supportedChains[chainSelector] = false;
+        delete senderContracts[chainSelector];
     }
 } 

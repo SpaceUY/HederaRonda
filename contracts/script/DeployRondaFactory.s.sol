@@ -21,6 +21,7 @@ contract DeployRondaFactory is Script {
         uint64 subscriptionId = uint64(vm.envUint("VRF_SUBSCRIPTION_ID"));
         bytes32 keyHash = vm.envBytes32("VRF_KEY_HASH");
         uint32 callbackGasLimit = uint32(vm.envUint("VRF_CALLBACK_GAS_LIMIT"));
+        address router = vm.envAddress("CCIP_ROUTER");
 
         // Start broadcasting transactions
         vm.startBroadcast(deployerPrivateKey);  
@@ -34,7 +35,8 @@ contract DeployRondaFactory is Script {
             subscriptionId,
             keyHash,
             callbackGasLimit,
-            address(penaltyToken)
+            address(penaltyToken),
+            router
         );
 
         owner = factory.owner();

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./Ronda.sol";
-import "./RondaSBT.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import {Ronda} from "./Ronda.sol";
+import {RondaSBT} from "./RondaSBT.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract RondaFactory is Ownable {
     // Events
@@ -23,6 +23,7 @@ contract RondaFactory is Ownable {
     bytes32 public immutable keyHash;
     uint32 public immutable callbackGasLimit;
     RondaSBT public immutable penaltyToken;
+    address public immutable router;
 
     // Array to track all created Ronda instances
     address[] public rondaInstances;
@@ -32,13 +33,15 @@ contract RondaFactory is Ownable {
         uint64 _subscriptionId,
         bytes32 _keyHash,
         uint32 _callbackGasLimit,
-        address _penaltyToken
+        address _penaltyToken,
+        address _router
     ) Ownable(msg.sender) {
         vrfCoordinator = _vrfCoordinator;
         subscriptionId = _subscriptionId;
         keyHash = _keyHash;
         callbackGasLimit = _callbackGasLimit;
         penaltyToken = RondaSBT(_penaltyToken);
+        router = _router;
     }
 
     function createRonda(
@@ -60,7 +63,8 @@ contract RondaFactory is Ownable {
             vrfCoordinator,
             subscriptionId,
             keyHash,
-            callbackGasLimit
+            callbackGasLimit,
+            router
         );
 
         rondaInstances.push(address(newRonda));
@@ -94,5 +98,14 @@ contract RondaFactory is Ownable {
 
     function removePenalty(address _participant) external onlyOwner {
         penaltyToken.burnPenalty(_participant);
+    }
+
+    // CCIP management functions
+    function addSupportedChain(uint256 rondaId, uint64 chainSelector, address senderContract) external onlyOwner {
+        Ronda(rondaInstances[rondaId]).addSupportedChain(chainSelector, senderContract);
+    }
+
+    function removeSupportedChain(uint256 rondaId, uint64 chainSelector) external onlyOwner {
+        Ronda(rondaInstances[rondaId]).removeSupportedChain(chainSelector);
     }
 } 

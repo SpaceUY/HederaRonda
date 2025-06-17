@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../test/MockToken.sol";
+import "../test/mocks/MockToken.sol";
 
 contract DeployMockToken is Script {
     MockToken public token;
