@@ -9,7 +9,7 @@ import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.s
 
 contract MockVRFCoordinator {
     uint256 public lastRequestId;
-    
+
     function requestRandomWords(
         bytes32 /* keyHash */,
         uint64 /* subId */,
@@ -17,7 +17,9 @@ contract MockVRFCoordinator {
         uint32 /* callbackGasLimit */,
         uint32 /* numWords */
     ) external returns (uint256) {
-        lastRequestId = uint256(keccak256(abi.encodePacked(block.timestamp, msg.sender)));
+        lastRequestId = uint256(
+            keccak256(abi.encodePacked(block.timestamp, msg.sender))
+        );
         return lastRequestId;
     }
 }
@@ -40,19 +42,22 @@ contract RondaTest is Test {
     int256[] interestDistribution;
     uint256 totalNeeded; // Total tokens needed per participant
 
-    uint64 subscriptionId = 1;
-    bytes32 keyHash = bytes32(uint256(1));
-    uint32 callbackGasLimit = 100000;
+    // VRF parameters
+    address public vrfCoordinator = address(0x123);
+    uint256 public subscriptionId = 1;
+    bytes32 public keyHash = bytes32(uint256(1));
+    uint32 public callbackGasLimit = 100000;
+
     uint256 lastRequestId;
 
     function setUp() public {
         token = new MockToken();
         penaltyToken = new RondaSBT();
         mockVRFCoordinator = new MockVRFCoordinator();
-        
+
         // Create interest distribution that sums to 0
         interestDistribution = new int256[](milestoneCount);
-        interestDistribution[0] = 5;  // +5%
+        interestDistribution[0] = 5; // +5%
         interestDistribution[1] = -2; // -2%
         interestDistribution[2] = -3; // -3%
 
@@ -76,13 +81,16 @@ contract RondaTest is Test {
 
         // Calculate total tokens needed per participant
         // Each participant needs: (monthlyDeposit * milestoneCount) + entryFee + extra for interest
-        totalNeeded = (monthlyDeposit * milestoneCount) + entryFee + (monthlyDeposit * 2); // Extra for interest
-        
+        totalNeeded =
+            (monthlyDeposit * milestoneCount) +
+            entryFee +
+            (monthlyDeposit * 2); // Extra for interest
+
         // Fund participants
         token.mint(alice, totalNeeded);
         token.mint(bob, totalNeeded);
         token.mint(carol, totalNeeded);
-        
+
         // Approve Ronda contract
         vm.prank(alice);
         token.approve(address(ronda), type(uint256).max);
@@ -108,7 +116,7 @@ contract RondaTest is Test {
         // Mock VRF response
         uint256[] memory randomWords = new uint256[](1);
         randomWords[0] = 123; // Some random number
-        
+
         // Call fulfillRandomWords with the captured request ID
         vm.prank(address(mockVRFCoordinator));
         ronda.rawFulfillRandomWords(lastRequestId, randomWords);
@@ -127,7 +135,10 @@ contract RondaTest is Test {
         ronda.joinRonda();
         bool hasJoinedCarol = ronda.hasParticipantJoined(carol);
         assertTrue(hasJoinedCarol);
-        assertEq(uint(ronda.currentState()), uint(Ronda.RondaState.Randomizing));
+        assertEq(
+            uint(ronda.currentState()),
+            uint(Ronda.RondaState.Randomizing)
+        );
     }
 
     function testDepositAndDeliver() public {
@@ -146,12 +157,16 @@ contract RondaTest is Test {
 
         // Calculate expected amount with +5% interest
         uint256 baseAmount = monthlyDeposit * participantCount;
-        uint256 interestAmount = (baseAmount * uint256(interestDistribution[0])) / 100;
+        uint256 interestAmount = (baseAmount *
+            uint256(interestDistribution[0])) / 100;
         uint256 expectedAmount = baseAmount + interestAmount;
 
         // Check the balance of the participant who got slot 0
         address slot0Participant = ronda.slotToParticipant(0);
-        uint256 expectedBalance = totalNeeded - entryFee - monthlyDeposit + expectedAmount;
+        uint256 expectedBalance = totalNeeded -
+            entryFee -
+            monthlyDeposit +
+            expectedAmount;
         assertEq(token.balanceOf(slot0Participant), expectedBalance);
     }
 
@@ -254,24 +269,24 @@ contract RondaTest is Test {
 
     function testWhitelistManagement() public {
         address newRonda = address(0x5);
-        
+
         // Test adding to whitelist
         penaltyToken.addToWhitelist(newRonda);
         assertTrue(penaltyToken.whitelistedRondas(newRonda));
-        
+
         // Test removing from whitelist
         penaltyToken.removeFromWhitelist(newRonda);
         assertFalse(penaltyToken.whitelistedRondas(newRonda));
-        
+
         // Test adding invalid address
         vm.expectRevert("Invalid address");
         penaltyToken.addToWhitelist(address(0));
-        
+
         // Test adding already whitelisted address
         penaltyToken.addToWhitelist(newRonda);
         vm.expectRevert("Already whitelisted");
         penaltyToken.addToWhitelist(newRonda);
-        
+
         // Test removing non-whitelisted address
         penaltyToken.removeFromWhitelist(newRonda);
         vm.expectRevert("Not whitelisted");
@@ -281,7 +296,7 @@ contract RondaTest is Test {
     function testNonWhitelistedMint() public {
         // Create a new RondaSBT instance without whitelisting
         RondaSBT newPenaltyToken = new RondaSBT();
-        
+
         // Try to mint a penalty token without being whitelisted
         vm.expectRevert("Caller is not whitelisted");
         newPenaltyToken.mintPenalty(alice);
@@ -308,4 +323,4 @@ contract RondaTest is Test {
         vm.expectRevert("Caller is not whitelisted");
         newRonda.removePenalty(alice);
     }
-} 
+}

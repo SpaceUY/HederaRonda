@@ -19,7 +19,7 @@ contract RondaFactory is Ownable {
 
     // State variables
     address public immutable vrfCoordinator;
-    uint64 public immutable subscriptionId;
+    uint256 public immutable subscriptionId;
     bytes32 public immutable keyHash;
     uint32 public immutable callbackGasLimit;
     RondaSBT public immutable penaltyToken;
@@ -30,7 +30,7 @@ contract RondaFactory is Ownable {
 
     constructor(
         address _vrfCoordinator,
-        uint64 _subscriptionId,
+        uint256 _subscriptionId,
         bytes32 _keyHash,
         uint32 _callbackGasLimit,
         address _penaltyToken,
@@ -78,7 +78,7 @@ contract RondaFactory is Ownable {
             _paymentToken,
             address(penaltyToken)
         );
-        
+
         penaltyToken.addToWhitelist(address(newRonda));
 
         return address(newRonda);
@@ -101,11 +101,21 @@ contract RondaFactory is Ownable {
     }
 
     // CCIP management functions
-    function addSupportedChain(uint256 rondaId, uint64 chainSelector, address senderContract) external onlyOwner {
-        Ronda(rondaInstances[rondaId]).addSupportedChain(chainSelector, senderContract);
+    function addSupportedChain(
+        uint256 rondaId,
+        uint64 chainSelector,
+        address senderContract
+    ) external onlyOwner {
+        Ronda(rondaInstances[rondaId]).addSupportedChain(
+            chainSelector,
+            senderContract
+        );
     }
 
-    function removeSupportedChain(uint256 rondaId, uint64 chainSelector) external onlyOwner {
+    function removeSupportedChain(
+        uint256 rondaId,
+        uint64 chainSelector
+    ) external onlyOwner {
         Ronda(rondaInstances[rondaId]).removeSupportedChain(chainSelector);
     }
-} 
+}

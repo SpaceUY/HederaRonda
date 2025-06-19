@@ -11,12 +11,7 @@ contract DeployMockToken is Script {
 
     function run() public {
         // Load environment variables or use defaults for local testing
-        uint256 deployerPrivateKey;
-        try vm.envUint("PRIVATE_KEY") returns (uint256 key) {
-            deployerPrivateKey = key;
-        } catch {
-            deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
-        }
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 
         // Start broadcasting transactions
         vm.startBroadcast(deployerPrivateKey);
@@ -29,4 +24,4 @@ contract DeployMockToken is Script {
         // Log the deployed address
         console2.log("MockToken deployed at:", address(token));
     }
-} 
+}

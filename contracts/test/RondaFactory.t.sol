@@ -18,7 +18,7 @@ contract RondaFactoryTest is Test {
     RondaSBT public penaltyToken;
     MockERC20 public paymentToken;
     address public vrfCoordinator = address(0x123);
-    uint64 public subscriptionId = 1;
+    uint256 public subscriptionId = 1;
     bytes32 public keyHash = bytes32(uint256(1));
     uint32 public callbackGasLimit = 100000;
     address public router = address(0x456);
@@ -53,9 +53,9 @@ contract RondaFactoryTest is Test {
         uint256 milestoneCount = 3;
         uint256 monthlyDeposit = 100 ether;
         uint256 entryFee = 10 ether;
-        
+
         int256[] memory interestDistribution = new int256[](milestoneCount);
-        interestDistribution[0] = 5;  // +5%
+        interestDistribution[0] = 5; // +5%
         interestDistribution[1] = -2; // -2%
         interestDistribution[2] = -3; // -3%
 
@@ -84,7 +84,7 @@ contract RondaFactoryTest is Test {
         uint256 milestoneCount = 3;
         uint256 monthlyDeposit = 100 ether;
         uint256 entryFee = 10 ether;
-        
+
         int256[] memory interestDistribution = new int256[](milestoneCount);
         interestDistribution[0] = 5;
         interestDistribution[1] = -2;
@@ -121,7 +121,7 @@ contract RondaFactoryTest is Test {
         uint256 milestoneCount = 3;
         uint256 monthlyDeposit = 100 ether;
         uint256 entryFee = 10 ether;
-        
+
         int256[] memory interestDistribution = new int256[](milestoneCount);
         interestDistribution[0] = 5;
         interestDistribution[1] = -2;
@@ -145,7 +145,7 @@ contract RondaFactoryTest is Test {
         uint256 milestoneCount = 3;
         uint256 monthlyDeposit = 100 ether;
         uint256 entryFee = 10 ether;
-        
+
         int256[] memory interestDistribution = new int256[](milestoneCount);
         interestDistribution[0] = 5;
         interestDistribution[1] = -2;
@@ -174,7 +174,7 @@ contract RondaFactoryTest is Test {
         uint256 milestoneCount = 3;
         uint256 monthlyDeposit = 100 ether;
         uint256 entryFee = 10 ether;
-        
+
         int256[] memory interestDistribution = new int256[](milestoneCount);
         interestDistribution[0] = 5;
         interestDistribution[1] = -2;
@@ -205,7 +205,7 @@ contract RondaFactoryTest is Test {
         uint256 milestoneCount = 3;
         uint256 monthlyDeposit = 100 ether;
         uint256 entryFee = 10 ether;
-        
+
         int256[] memory interestDistribution = new int256[](milestoneCount);
         interestDistribution[0] = 5;
         interestDistribution[1] = -2;
@@ -237,7 +237,7 @@ contract RondaFactoryTest is Test {
         uint256 milestoneCount = 3;
         uint256 monthlyDeposit = 100 ether;
         uint256 entryFee = 10 ether;
-        
+
         int256[] memory interestDistribution = new int256[](milestoneCount);
         interestDistribution[0] = 5;
         interestDistribution[1] = -2;
@@ -265,4 +265,4 @@ contract RondaFactoryTest is Test {
         vm.expectRevert();
         factory.addSupportedChain(0, chainSelector, senderContract);
     }
-} 
+}

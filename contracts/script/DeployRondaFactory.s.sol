@@ -15,20 +15,21 @@ contract DeployRondaFactory is Script {
     function run() public {
         // Load environment variables
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        
+
         // Chainlink VRF parameters
         address vrfCoordinator = vm.envAddress("VRF_COORDINATOR");
-        uint64 subscriptionId = uint64(vm.envUint("VRF_SUBSCRIPTION_ID"));
+        uint256 subscriptionId = vm.envUint("VRF_SUBSCRIPTION_ID");
         bytes32 keyHash = vm.envBytes32("VRF_KEY_HASH");
         uint32 callbackGasLimit = uint32(vm.envUint("VRF_CALLBACK_GAS_LIMIT"));
         address router = vm.envAddress("CCIP_ROUTER");
 
         // Start broadcasting transactions
-        vm.startBroadcast(deployerPrivateKey);  
+        vm.createSelectFork("sepolia");
+        vm.startBroadcast(deployerPrivateKey);
 
         // Deploy RondaSBT first
         penaltyToken = new RondaSBT();
-        
+
         // Deploy RondaFactory
         factory = new RondaFactory(
             vrfCoordinator,
@@ -54,4 +55,4 @@ contract DeployRondaFactory is Script {
         console2.log("RondaFactory deployed at:", address(factory));
         console2.log("RondaSBT owner:", penaltyToken.owner());
     }
-} 
+}

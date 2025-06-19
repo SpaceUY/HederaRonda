@@ -23,12 +23,12 @@ contract DeployRondaInstance is Script {
         // Ronda parameters
         uint256 participantCount = 3;
         uint256 milestoneCount = 3;
-        uint256 monthlyDeposit = 100 ether;
-        uint256 entryFee = 10 ether;
-        
+        uint256 monthlyDeposit = 0.0001 ether;
+        uint256 entryFee = 0.0001 ether;
+
         // Create interest distribution that sums to 0
         int256[] memory interestDistribution = new int256[](milestoneCount);
-        interestDistribution[0] = 5;  // +5%
+        interestDistribution[0] = 5; // +5%
         interestDistribution[1] = -2; // -2%
         interestDistribution[2] = -3; // -3%
 
@@ -47,4 +47,4 @@ contract DeployRondaInstance is Script {
         // Log the deployed address
         console2.log("Ronda instance deployed at:", rondaAddress);
     }
-} 
+}
