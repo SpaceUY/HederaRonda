@@ -3,13 +3,13 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Client} from "chainlink-ccip/contracts/libraries/Client.sol";
 import {CCIPReceiver} from "chainlink-ccip/contracts/applications/CCIPReceiver.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {RondaSBT} from "./RondaSBT.sol";
-import {RondaFactory} from "./RondaFactory.sol";
 
-contract Ronda is Ownable, CCIPReceiver {
+contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
     using SafeERC20 for IERC20;
 
     enum RondaState {
@@ -18,11 +18,6 @@ contract Ronda is Ownable, CCIPReceiver {
         Finalized,
         Aborted,
         Randomizing
-    }
-
-    struct Participant {
-        bool hasJoined;
-        mapping(uint256 => bool) milestonePaid;
     }
 
     struct Milestone {
@@ -43,8 +38,17 @@ contract Ronda is Ownable, CCIPReceiver {
     RondaSBT public penaltyToken;
     address public factory;
 
+    // VRF variables
+    uint256 public subscriptionId;
+    bytes32 public keyHash;
+    uint32 public callbackGasLimit;
+    uint16 public requestConfirmations;
+    uint32 public numWords;
+    uint256 public lastRequestId;
+
     // Mappings
-    mapping(address => Participant) public participants;
+    mapping(address => bool) public hasJoined;
+    mapping(address => mapping(uint256 => bool)) public milestonePaid;
     mapping(uint256 => Milestone) public milestones;
     mapping(uint256 => address) public slotToParticipant;
 
@@ -57,6 +61,7 @@ contract Ronda is Ownable, CCIPReceiver {
     event ParticipantJoined(address indexed participant);
     event DepositMade(address indexed participant, uint256 milestone);
     event RondaDelivered(address indexed participant, uint256 milestone);
+    event RandomnessRequested(uint256 requestId);
     event RandomnessReceived(uint256 requestId, uint256[] randomWords);
     event SlotsAssigned(address[] participants, uint256[] slots);
     event PenaltyIssued(address indexed participant, uint256 milestone);
@@ -80,8 +85,12 @@ contract Ronda is Ownable, CCIPReceiver {
         int256[] memory _interestDistribution,
         address _paymentToken,
         address _penaltyToken,
-        address _router
-    ) Ownable(msg.sender) CCIPReceiver(_router) {
+        address _router,
+        address _vrfCoordinator,
+        uint256 _subscriptionId,
+        bytes32 _keyHash,
+        uint32 _callbackGasLimit
+    ) CCIPReceiver(_router) VRFConsumerBaseV2Plus(_vrfCoordinator) {
         require(
             _participantCount > 0,
             "Participant count must be greater than 0"
@@ -109,6 +118,14 @@ contract Ronda is Ownable, CCIPReceiver {
         paymentToken = IERC20(_paymentToken);
         penaltyToken = RondaSBT(_penaltyToken);
         factory = msg.sender;
+        
+        // Initialize VRF variables
+        subscriptionId = _subscriptionId;
+        keyHash = _keyHash;
+        callbackGasLimit = _callbackGasLimit;
+        requestConfirmations = 3;
+        numWords = 1;
+        
         _changeState(RondaState.Open);
 
         // Initialize milestones
@@ -122,7 +139,7 @@ contract Ronda is Ownable, CCIPReceiver {
     }
 
     modifier onlyParticipant(address participant) {
-        require(participants[participant].hasJoined, "Not a participant");
+        require(hasJoined[participant], "Not a participant");
         _;
     }
 
@@ -199,7 +216,7 @@ contract Ronda is Ownable, CCIPReceiver {
     function hasParticipantJoined(
         address _participant
     ) public view returns (bool) {
-        return participants[_participant].hasJoined;
+        return hasJoined[_participant];
     }
 
     function hasApprovedEnough(
@@ -209,10 +226,11 @@ contract Ronda is Ownable, CCIPReceiver {
         return allowance >= monthlyDeposit;
     }
 
-    function receiveRandomness(
+    function fulfillRandomWords(
         uint256 requestId,
         uint256[] calldata randomWords
-    ) external onlyOwnerOrFactory {
+    ) internal override {
+        require(requestId == lastRequestId, "Invalid request ID");
         require(
             currentState == RondaState.Randomizing,
             "Ronda must be in randomizing state"
@@ -228,6 +246,110 @@ contract Ronda is Ownable, CCIPReceiver {
         emit RondaStateChanged(_newState);
     }
 
+    // Function to check and issue penalties for non-paying participants
+    function _checkAndIssuePenalties(
+        uint256 _milestone
+    ) internal returns (bool) {
+        require(_milestone < milestoneCount, "Invalid milestone");
+
+        bool penaltyIssued = false;
+        for (uint256 i = 0; i < participantCount; i++) {
+            address participant = slotToParticipant[i];
+            if (
+                participant != address(0) &&
+                !milestonePaid[participant][_milestone]
+            ) {
+                penaltyToken.mintPenalty(participant);
+                penaltyIssued = true;
+                emit PenaltyIssued(participant, _milestone);
+            }
+        }
+        return penaltyIssued;
+    }
+
+    // Function to remove penalty when participant pays their dues
+    function removePenalty(address _participant) external onlyOwnerOrFactory{
+        penaltyToken.burnPenalty(_participant);
+    }
+
+    function addSupportedChain(
+        uint64 chainSelector,
+        address senderContract
+    ) external onlyOwnerOrFactory{
+        supportedChains[chainSelector] = true;
+        senderContracts[chainSelector] = senderContract;
+    }
+
+    function removeSupportedChain(
+        uint64 chainSelector
+    ) external onlyOwnerOrFactory{
+        supportedChains[chainSelector] = false;
+        delete senderContracts[chainSelector];
+    }
+
+    function _depositInternal(
+        address participant,
+        uint256 milestone
+    ) internal onlyParticipant(participant) onlyRunning {
+        require(currentState == RondaState.Running, "Ronda is not running");
+        require(milestone < milestoneCount, "Invalid milestone");
+        require(
+            !milestonePaid[participant][milestone],
+            "Already paid for this milestone"
+        );
+
+        // Update milestone state
+        milestonePaid[participant][milestone] = true;
+        milestones[milestone].totalDeposits++;
+
+        emit DepositMade(participant, milestone);
+
+        // Check if milestone is complete
+        if (
+            milestones[milestone].totalDeposits ==
+            milestones[milestone].requiredDeposits
+        ) {
+            milestones[milestone].isComplete = true;
+        }
+    }
+
+    function _joinRondaInternal(
+        address participant
+    ) internal onlyOpen isWhitelisted(participant) {
+        require(!hasParticipantJoined(participant), "Already joined");
+
+        // Update participant state
+        hasJoined[participant] = true;
+        joinedParticipants.push(participant);
+
+        emit ParticipantJoined(participant);
+
+        if (joinedParticipants.length == participantCount) {
+            _changeState(RondaState.Randomizing);
+            _requestRandomnessInternal();
+        }
+    }
+
+    function _requestRandomnessInternal() internal {
+        require(
+            currentState == RondaState.Randomizing,
+            "Ronda must be in randomizing state"
+        );
+        
+        VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+            keyHash: keyHash,
+            subId: subscriptionId,
+            requestConfirmations: requestConfirmations,
+            callbackGasLimit: callbackGasLimit,
+            numWords: numWords,
+            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
+        });
+        
+        lastRequestId = s_vrfCoordinator.requestRandomWords(req);
+        
+        emit RandomnessRequested(lastRequestId);
+    }
+    
     function _assignSlots(uint256 _randomSeed) internal {
         require(
             joinedParticipants.length == participantCount,
@@ -257,33 +379,6 @@ contract Ronda is Ownable, CCIPReceiver {
         emit SlotsAssigned(joinedParticipants, availableSlots);
     }
 
-    // Function to check and issue penalties for non-paying participants
-    function _checkAndIssuePenalties(
-        uint256 _milestone
-    ) internal returns (bool) {
-        require(_milestone < milestoneCount, "Invalid milestone");
-
-        bool penaltyIssued = false;
-        for (uint256 i = 0; i < participantCount; i++) {
-            address participant = slotToParticipant[i];
-            if (
-                participant != address(0) &&
-                !participants[participant].milestonePaid[_milestone]
-            ) {
-                penaltyToken.mintPenalty(participant);
-                penaltyIssued = true;
-                emit PenaltyIssued(participant, _milestone);
-            }
-        }
-        return penaltyIssued;
-    }
-
-    // Function to remove penalty when participant pays their dues
-    function removePenalty(address _participant) external onlyOwnerOrFactory{
-        penaltyToken.burnPenalty(_participant);
-    }
-
-    // CCIP receiver function
     function _ccipReceive(
         Client.Any2EVMMessage memory message
     ) internal override {
@@ -326,66 +421,5 @@ contract Ronda is Ownable, CCIPReceiver {
         } else {
             revert("Invalid function selector");
         }
-    }
-
-    // Internal function to handle join logic
-    function _joinRondaInternal(
-        address participant
-    ) internal onlyOpen isWhitelisted(participant) {
-        require(!hasParticipantJoined(participant), "Already joined");
-
-        // Update participant state
-        participants[participant].hasJoined = true;
-        joinedParticipants.push(participant);
-
-        emit ParticipantJoined(participant);
-
-        if (joinedParticipants.length == participantCount) {
-            _changeState(RondaState.Randomizing);
-            RondaFactory(factory).requestRandomnessForRonda(address(this));
-        }
-    }
-
-    // Internal function to handle deposit logic
-    function _depositInternal(
-        address participant,
-        uint256 milestone
-    ) internal onlyParticipant(participant) onlyRunning {
-        require(participants[participant].hasJoined, "Not a participant");
-        require(currentState == RondaState.Running, "Ronda is not running");
-        require(milestone < milestoneCount, "Invalid milestone");
-        require(
-            !participants[participant].milestonePaid[milestone],
-            "Already paid for this milestone"
-        );
-
-        // Update milestone state
-        participants[participant].milestonePaid[milestone] = true;
-        milestones[milestone].totalDeposits++;
-
-        emit DepositMade(participant, milestone);
-
-        // Check if milestone is complete
-        if (
-            milestones[milestone].totalDeposits ==
-            milestones[milestone].requiredDeposits
-        ) {
-            milestones[milestone].isComplete = true;
-        }
-    }
-
-    function addSupportedChain(
-        uint64 chainSelector,
-        address senderContract
-    ) external onlyOwnerOrFactory{
-        supportedChains[chainSelector] = true;
-        senderContracts[chainSelector] = senderContract;
-    }
-
-    function removeSupportedChain(
-        uint64 chainSelector
-    ) external onlyOwnerOrFactory{
-        supportedChains[chainSelector] = false;
-        delete senderContracts[chainSelector];
     }
 }

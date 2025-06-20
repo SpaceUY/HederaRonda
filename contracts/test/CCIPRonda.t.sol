@@ -10,6 +10,7 @@ import "./mocks/MockRouter.sol";
 import "./mocks/MockToken.sol";
 import {Client} from "chainlink-ccip/contracts/libraries/Client.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "./mocks/MockVrfCoordinator.sol";
 
 contract CrossChainRondaTest is Test {
     MockRouter public router;
@@ -28,9 +29,10 @@ contract CrossChainRondaTest is Test {
 
     // VRF parameters
     address public vrfCoordinator = address(0x123);
-    uint64 public subscriptionId = 1;
+    uint256 public subscriptionId;
     bytes32 public keyHash = bytes32(uint256(1));
     uint32 public callbackGasLimit = 100000;
+    MockVRFCoordinator public mockVRFCoordinator;
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -42,19 +44,23 @@ contract CrossChainRondaTest is Test {
         paymentTokenSender = new MockToken();
         paymentTokenReceiver = new MockToken();
         penaltyToken = new RondaSBT();
+        mockVRFCoordinator = new MockVRFCoordinator();
 
-        // Deploy the implementation contract
+        // Create a subscription for the factory
+        subscriptionId = mockVRFCoordinator.createSubscription();
+
+        // Deploy the factory implementation
         factoryImplementation = new RondaFactory();
 
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             RondaFactory.initialize.selector,
-            vrfCoordinator,
+            address(mockVRFCoordinator),
             subscriptionId,
             keyHash,
             callbackGasLimit,
             address(penaltyToken),
-            address(router)
+            router
         );
 
         // Deploy the proxy contract
@@ -62,11 +68,7 @@ contract CrossChainRondaTest is Test {
             address(factoryImplementation),
             initData
         );
-
-        // Get the factory instance through the proxy
         factory = RondaFactory(address(proxy));
-
-        // Setup penalty token
         penaltyToken.addToWhitelist(address(factory));
         penaltyToken.transferOwnership(address(factory));
 
