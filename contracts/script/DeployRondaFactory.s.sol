@@ -4,10 +4,13 @@ pragma solidity ^0.8.20;
 import "forge-std/Script.sol";
 import "../src/RondaFactory.sol";
 import "../src/RondaSBT.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployRondaFactory is Script {
     address public owner;
     RondaFactory public factory;
+    RondaFactory public factoryImplementation;
+    ERC1967Proxy public proxy;
     RondaSBT public penaltyToken;
 
     function setUp() public {}
@@ -30,8 +33,12 @@ contract DeployRondaFactory is Script {
         // Deploy RondaSBT first
         penaltyToken = new RondaSBT();
 
-        // Deploy RondaFactory
-        factory = new RondaFactory(
+        // Deploy the implementation contract
+        factoryImplementation = new RondaFactory();
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            RondaFactory.initialize.selector,
             vrfCoordinator,
             subscriptionId,
             keyHash,
@@ -40,6 +47,14 @@ contract DeployRondaFactory is Script {
             router
         );
 
+        // Deploy the proxy contract
+        proxy = new ERC1967Proxy(
+            address(factoryImplementation),
+            initData
+        );
+
+        // Get the factory instance through the proxy
+        factory = RondaFactory(address(proxy));
         owner = factory.owner();
 
         // Add the factory to the whitelist
@@ -52,7 +67,9 @@ contract DeployRondaFactory is Script {
 
         // Log the deployed addresses
         console2.log("RondaSBT deployed at:", address(penaltyToken));
-        console2.log("RondaFactory deployed at:", address(factory));
+        console2.log("RondaFactory implementation deployed at:", address(factoryImplementation));
+        console2.log("RondaFactory proxy deployed at:", address(proxy));
+        console2.log("RondaFactory (proxy address) deployed at:", address(factory));
         console2.log("RondaSBT owner:", penaltyToken.owner());
     }
 }

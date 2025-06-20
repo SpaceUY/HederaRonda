@@ -9,6 +9,7 @@ import {RondaSBT} from "../src/RondaSBT.sol";
 import "./mocks/MockRouter.sol";
 import "./mocks/MockToken.sol";
 import {Client} from "chainlink-ccip/contracts/libraries/Client.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract CrossChainRondaTest is Test {
     MockRouter public router;
@@ -16,6 +17,8 @@ contract CrossChainRondaTest is Test {
     MockToken public paymentTokenReceiver;
     RondaSBT public penaltyToken;
     RondaFactory public factory;
+    RondaFactory public factoryImplementation;
+    ERC1967Proxy public proxy;
     Ronda public ronda;
     RondaSender public sender;
     address public owner;
@@ -40,8 +43,12 @@ contract CrossChainRondaTest is Test {
         paymentTokenReceiver = new MockToken();
         penaltyToken = new RondaSBT();
 
-        // Deploy factory
-        factory = new RondaFactory(
+        // Deploy the implementation contract
+        factoryImplementation = new RondaFactory();
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            RondaFactory.initialize.selector,
             vrfCoordinator,
             subscriptionId,
             keyHash,
@@ -49,6 +56,15 @@ contract CrossChainRondaTest is Test {
             address(penaltyToken),
             address(router)
         );
+
+        // Deploy the proxy contract
+        proxy = new ERC1967Proxy(
+            address(factoryImplementation),
+            initData
+        );
+
+        // Get the factory instance through the proxy
+        factory = RondaFactory(address(proxy));
 
         // Setup penalty token
         penaltyToken.addToWhitelist(address(factory));

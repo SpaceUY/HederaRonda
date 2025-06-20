@@ -3,16 +3,13 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
-import {IVRFCoordinatorV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
-import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Client} from "chainlink-ccip/contracts/libraries/Client.sol";
 import {CCIPReceiver} from "chainlink-ccip/contracts/applications/CCIPReceiver.sol";
-import {IRouterClient} from "chainlink-ccip/contracts/interfaces/IRouterClient.sol";
 import {RondaSBT} from "./RondaSBT.sol";
+import {RondaFactory} from "./RondaFactory.sol";
 
-contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
+contract Ronda is Ownable, CCIPReceiver {
     using SafeERC20 for IERC20;
 
     enum RondaState {
@@ -34,13 +31,6 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
         uint256 requiredDeposits;
     }
 
-    // Chainlink VRF variables
-    uint256 private immutable subscriptionId;
-    bytes32 private immutable keyHash;
-    uint32 private immutable callbackGasLimit;
-    uint16 private constant REQUEST_CONFIRMATIONS = 3;
-    uint32 private constant NUM_WORDS = 1;
-
     // State variables
     RondaState public currentState;
     uint256 public participantCount;
@@ -49,9 +39,9 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
     uint256 public entryFee;
     int256[] public interestDistribution;
     IERC20 public paymentToken;
-    address[] private joinedParticipants;
+    address[] public joinedParticipants;
     RondaSBT public penaltyToken;
-    uint256 private vrfRequestId;
+    address public factory;
 
     // Mappings
     mapping(address => Participant) public participants;
@@ -67,7 +57,7 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
     event ParticipantJoined(address indexed participant);
     event DepositMade(address indexed participant, uint256 milestone);
     event RondaDelivered(address indexed participant, uint256 milestone);
-    event RandomnessRequested();
+    event RandomnessReceived(uint256 requestId, uint256[] randomWords);
     event SlotsAssigned(address[] participants, uint256[] slots);
     event PenaltyIssued(address indexed participant, uint256 milestone);
 
@@ -90,12 +80,8 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
         int256[] memory _interestDistribution,
         address _paymentToken,
         address _penaltyToken,
-        address _vrfCoordinator,
-        uint256 _subscriptionId,
-        bytes32 _keyHash,
-        uint32 _callbackGasLimit,
         address _router
-    ) VRFConsumerBaseV2Plus(_vrfCoordinator) CCIPReceiver(_router) {
+    ) Ownable(msg.sender) CCIPReceiver(_router) {
         require(
             _participantCount > 0,
             "Participant count must be greater than 0"
@@ -122,12 +108,8 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
         interestDistribution = _interestDistribution;
         paymentToken = IERC20(_paymentToken);
         penaltyToken = RondaSBT(_penaltyToken);
+        factory = msg.sender;
         _changeState(RondaState.Open);
-
-        // Initialize VRF variables
-        subscriptionId = _subscriptionId;
-        keyHash = _keyHash;
-        callbackGasLimit = _callbackGasLimit;
 
         // Initialize milestones
         for (uint256 i = 0; i < _milestoneCount; i++) {
@@ -154,8 +136,13 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
         _;
     }
 
+    modifier onlyFactory() {
+        require(msg.sender == factory, "Only factory can call this function");
+        _;
+    }
+
     modifier isWhitelisted(address _participant) {
-        // TODO: implemtent whitelisting
+        // TODO: implement whitelisting
         _;
     }
 
@@ -222,35 +209,18 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
         return allowance >= monthlyDeposit;
     }
 
-    function requestRandomness() internal {
-        require(currentState == RondaState.Open, "Ronda must be in open state");
-        vrfRequestId = s_vrfCoordinator.requestRandomWords(
-            VRFV2PlusClient.RandomWordsRequest({
-                keyHash: keyHash,
-                subId: subscriptionId,
-                requestConfirmations: REQUEST_CONFIRMATIONS,
-                callbackGasLimit: callbackGasLimit,
-                numWords: NUM_WORDS,
-                extraArgs: VRFV2PlusClient._argsToBytes(
-                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
-                )
-            })
-        );
-        _changeState(RondaState.Randomizing);
-        emit RandomnessRequested();
-    }
-
-    function fulfillRandomWords(
+    function receiveRandomness(
         uint256 requestId,
         uint256[] calldata randomWords
-    ) internal override {
-        require(requestId == vrfRequestId, "Invalid request ID");
+    ) external onlyFactory {
         require(
             currentState == RondaState.Randomizing,
             "Ronda must be in randomizing state"
         );
         _assignSlots(randomWords[0]);
         _changeState(RondaState.Running);
+        
+        emit RandomnessReceived(requestId, randomWords);
     }
 
     function _changeState(RondaState _newState) internal {
@@ -370,9 +340,9 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
 
         emit ParticipantJoined(participant);
 
-        // Check if ronda is full
         if (joinedParticipants.length == participantCount) {
-            requestRandomness();
+            _changeState(RondaState.Randomizing);
+            RondaFactory(factory).requestRandomnessForRonda(address(this));
         }
     }
 
@@ -404,26 +374,17 @@ contract Ronda is VRFConsumerBaseV2Plus, CCIPReceiver {
         }
     }
 
-    // Admin functions to manage CCIP configuration
-    modifier onlyOwnerOrFactory() {
-        require(
-            msg.sender == owner() || Ownable(owner()).owner() == msg.sender,
-            "Not authorized"
-        );
-        _;
-    }
-
     function addSupportedChain(
         uint64 chainSelector,
         address senderContract
-    ) external onlyOwnerOrFactory {
+    ) external onlyOwner {
         supportedChains[chainSelector] = true;
         senderContracts[chainSelector] = senderContract;
     }
 
     function removeSupportedChain(
         uint64 chainSelector
-    ) external onlyOwnerOrFactory {
+    ) external onlyOwner {
         supportedChains[chainSelector] = false;
         delete senderContracts[chainSelector];
     }

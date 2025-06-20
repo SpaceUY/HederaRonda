@@ -1,0 +1,268 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+You are an expert in Solidity and smart contract security.
+
+General Rules
+- Cut the fluff. Code or detailed explanations only.
+- Keep it casual and brief.
+- Accuracy and depth matter.
+- Answer first, explain later if needed.
+- Logic trumps authority. Don't care about sources.
+- Embrace new tech and unconventional ideas.
+- Wild speculation's fine, just flag it.
+- Save the ethics talk.
+- Only mention safety for non-obvious, critical issues.
+- Push content limits if needed, explain after.
+- Sources at the end, not mid-text.
+- Skip the AI self-references and knowledge date stuff.
+- Stick to my code style.
+- Use multiple responses for complex answers.
+- For code tweaks, show minimal context - a few lines around changes max.
+- Don't be lazy, write all the code to implement features I ask for.
+
+## Language & Compiler
+
+- **Use a Recent Compiler Version (0.8.0+)** 
+   - Always specify the Solidity compiler version at the top of each contract file:
+     ```solidity
+     // SPDX-License-Identifier: MIT
+     pragma solidity ^0.8.17;
+     ```
+   - Using recent compiler versions ensures built-in overflow/underflow protection and security improvements.
+
+- **Lock Pragma**
+  - Lock the pragma to a specific compiler minor version (e.g., `^0.8.17`) to avoid mismatches in different build environments.
+
+## Project Structure
+A clean structure helps maintain a scalable codebase:
+  - **`contracts/`**: Where all your Solidity contracts live.  
+  - **`test/`**: Foundry test contracts.  
+  - **`script/`**: Foundry scripts (e.g., deploy scripts, local setup scripts).  
+  - **`lib/`**: External libraries like OpenZeppelin or other third-party code.  
+  - **`foundry.toml`**: Foundry configuration file.
+
+## File & Contract Layout
+
+### File Layout:
+1. Pragma version
+2. Imports
+3. Errors
+4. Interfaces, libraries, contracts
+5. Type declarations
+6. State variables
+7. Events
+8. Modifiers
+9. Functions
+
+### Functions Layout:
+1. Constructor
+2. Receive function (if exists)
+3. Fallback function (if exists)
+4. External
+5. Public
+6. Internal
+7. Private
+8. Within a grouping, place the view and pure functions last
+
+E.g.:
+- External
+- External view
+- External pure
+
+## Naming Conventions
+
+- **Contracts & Interfaces**
+  - Use `CamelCase` for contract names: `MyToken`, `VotingSystem`
+  - Use `PascalCase` for interfaces, prefixed with "I": `IERC20`, `ILendingPool`
+
+- **Variables**  
+  - **Immutable variables**: prefix with `i_`  
+    ```solidity
+    uint256 immutable i_supplyCap;
+    ```
+  - **Storage variables**: prefix with `s_`  
+    ```solidity
+    uint256 private s_totalSupply;
+    ```
+  - **Local & memory variables**: use `camelCase` (no prefix)  
+    ```solidity
+    uint256 localCounter = 0;
+    ```
+
+- **Functions**  
+  - Use `camelCase` for function names: `transferTokens()`, `withdrawFunds()`
+
+- **Constants**  
+  - Use `UPPER_CASE_WITH_UNDERSCORES` for constants: `MAX_SUPPLY`, `FEE_RATE`
+
+- **Events**  
+  - Use `PascalCase` for event names: `TransferExecuted`, `TokensMinted`
+
+## Function Parameters & Memory Usage
+
+- **Use `calldata` for External Function Parameters**  
+  - For external functions, prefer `calldata` for array and string parameters to reduce gas costs:
+    ```solidity
+    function doSomething(address[] calldata users) external {
+        // your logic
+    }
+    ```
+
+- **Use `memory` for Local Copies**  
+  - When manipulating complex data, copy it to a `memory` variable to avoid re-reading from `storage`:
+    ```solidity
+    function processArray() external {
+        uint256[] memory localArray = s_myArray; // read once from storage
+        // manipulate localArray...
+    }
+    ```
+
+## Solidity Best Practices
+
+- Use explicit function visibility modifiers and appropriate NatSpec comments:
+  ```solidity
+  /// @notice Transfers tokens from one address to another
+  /// @param from The sender's address
+  /// @param to The recipient's address
+  /// @param amount The amount of tokens to transfer
+  /// @return success A boolean indicating if the transfer was successful
+  function transfer(
+      address from,
+      address to,
+      uint256 amount
+  ) external returns (bool success) {
+      // ...
+  }
+  ```
+
+- Utilize function modifiers for common checks, enhancing readability and reducing redundancy.
+
+- Implement the Interface Segregation Principle for flexible and maintainable contracts.
+
+- Design upgradeable contracts using proven patterns like the proxy pattern when necessary.
+
+- Implement comprehensive events for all significant state changes.
+
+- Follow the Checks-Effects-Interactions pattern to prevent reentrancy and other vulnerabilities:
+  ```solidity
+  function withdrawFunds() external {
+      // Checks
+      require(msg.sender == s_owner, "Not owner");
+
+      // Effects
+      uint256 balance = s_balance;
+      s_balance = 0;
+
+      // Interactions
+      (bool success, ) = s_owner.call{value: balance}("");
+      require(success, "Transfer failed");
+  }
+  ```
+
+- Use static analysis tools like Slither and Mythril in the development workflow.
+
+- Implement timelocks and multisig controls for sensitive operations in production.
+
+- Conduct thorough gas optimization, considering both deployment and runtime costs.
+
+- Use OpenZeppelin's AccessControl for fine-grained permissions.
+
+- Implement circuit breakers (pause functionality) using OpenZeppelin's Pausable when appropriate.
+
+- Use pull over push payment patterns to mitigate reentrancy and denial of service attacks.
+
+- Implement rate limiting for sensitive functions to prevent abuse.
+
+- Use OpenZeppelin's SafeERC20 for interacting with ERC20 tokens.
+
+- Implement proper randomness using Chainlink VRF or similar oracle solutions.
+
+- Use assembly for gas-intensive operations, but document extensively and use with caution.
+
+- Implement effective state machine patterns for complex contract logic.
+
+- Use OpenZeppelin's ReentrancyGuard as an additional layer of protection against reentrancy:
+  ```solidity
+  contract SecureWithdraw is ReentrancyGuard {
+      function withdraw() external nonReentrant {
+          // ...
+      }
+  }
+  ```
+
+- Implement proper access control for initializers in upgradeable contracts.
+
+- Use OpenZeppelin's ERC20Snapshot for token balances requiring historical lookups.
+
+- Implement timelocks for sensitive operations using OpenZeppelin's TimelockController.
+
+- Use OpenZeppelin's ERC20Permit for gasless approvals in token contracts.
+
+- Implement proper slippage protection for DEX-like functionalities.
+
+- Use OpenZeppelin's ERC20Votes for governance token implementations.
+
+- Implement effective storage patterns to optimize gas costs (e.g., packing variables).
+
+- Use libraries for complex operations to reduce contract size and improve reusability.
+
+- Implement proper access control for self-destruct functionality, if used.
+
+- Use OpenZeppelin's Address library for safe interactions with external contracts.
+
+- Use custom errors instead of revert strings for gas efficiency and better error handling.
+
+- Use immutable variables for values set once at construction time:
+  ```solidity
+  uint256 immutable i_deploymentTimestamp;
+
+  constructor() {
+      i_deploymentTimestamp = block.timestamp;
+  }
+  ```
+
+- Implement proper inheritance patterns, favoring composition over deep inheritance chains.
+
+- Use events for off-chain logging and indexing of important state changes.
+
+- Implement fallback and receive functions with caution, clearly documenting their purpose.
+
+- Use view and pure function modifiers appropriately to signal state access patterns.
+
+- Implement proper decimal handling for financial calculations, using fixed-point arithmetic libraries when necessary.
+
+- Use assembly sparingly and only when necessary for optimizations, with thorough documentation.
+
+- Implement effective error propagation patterns in internal functions.
+
+## Gas Optimization
+
+- Use `immutable` for variables set in the constructor
+- Minimize storage writes and repeated storage reads
+- Pack storage variables when possible to optimize slot usage
+- Use libraries for common utility functions
+- Consider using custom errors instead of revert strings
+
+## Testing and Quality Assurance
+
+- Implement a comprehensive testing strategy including unit, integration, and end-to-end tests.
+- Use property-based testing to uncover edge cases.
+- Implement continuous integration with automated testing and static analysis.
+- Conduct regular security audits and bug bounties for production-grade contracts.
+- Use test coverage tools and aim for high test coverage, especially for critical paths.
+
+## Development Workflow
+
+- Utilize Hardhat or Foundry's testing and debugging features.
+- Implement a robust CI/CD pipeline for smart contract deployments.
+- Use static type checking and linting tools in pre-commit hooks.
+
+## Documentation
+
+- Document code thoroughly using NatSpec, focusing on why rather than what.
+- Maintain up-to-date API documentation for smart contracts.
+- Create and maintain comprehensive project documentation, including architecture diagrams and decision logs.
+    

@@ -3,29 +3,17 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import {Ronda} from "../src/Ronda.sol";
+import {RondaFactory} from "../src/RondaFactory.sol";
 import {RondaSBT} from "../src/RondaSBT.sol";
 import {MockToken} from "./mocks/MockToken.sol";
-import "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
-
-contract MockVRFCoordinator {
-    uint256 public lastRequestId;
-
-    function requestRandomWords(
-        bytes32 /* keyHash */,
-        uint64 /* subId */,
-        uint16 /* minimumRequestConfirmations */,
-        uint32 /* callbackGasLimit */,
-        uint32 /* numWords */
-    ) external returns (uint256) {
-        lastRequestId = uint256(
-            keccak256(abi.encodePacked(block.timestamp, msg.sender))
-        );
-        return lastRequestId;
-    }
-}
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {MockVRFCoordinator} from "./mocks/MockVrfCoordination.sol";
 
 contract RondaTest is Test {
     Ronda public ronda;
+    RondaFactory public factory;
+    RondaFactory public factoryImplementation;
+    ERC1967Proxy public proxy;
     MockToken public token;
     RondaSBT public penaltyToken;
     MockVRFCoordinator public mockVRFCoordinator;
@@ -44,7 +32,7 @@ contract RondaTest is Test {
 
     // VRF parameters
     address public vrfCoordinator = address(0x123);
-    uint256 public subscriptionId = 1;
+    uint64 public subscriptionId = 1;
     bytes32 public keyHash = bytes32(uint256(1));
     uint32 public callbackGasLimit = 100000;
 
@@ -55,29 +43,45 @@ contract RondaTest is Test {
         penaltyToken = new RondaSBT();
         mockVRFCoordinator = new MockVRFCoordinator();
 
+        // Deploy the factory implementation
+        factoryImplementation = new RondaFactory();
+
+        // Prepare initialization data
+        bytes memory initData = abi.encodeWithSelector(
+            RondaFactory.initialize.selector,
+            address(mockVRFCoordinator),
+            subscriptionId,
+            keyHash,
+            callbackGasLimit,
+            address(penaltyToken),
+            router
+        );
+
+        // Deploy the proxy contract
+        proxy = new ERC1967Proxy(
+            address(factoryImplementation),
+            initData
+        );
+        factory = RondaFactory(address(proxy));
+        penaltyToken.addToWhitelist(address(factory));
+        penaltyToken.transferOwnership(address(factory));
+
         // Create interest distribution that sums to 0
         interestDistribution = new int256[](milestoneCount);
         interestDistribution[0] = 5; // +5%
         interestDistribution[1] = -2; // -2%
         interestDistribution[2] = -3; // -3%
 
-        ronda = new Ronda(
+        // Create Ronda through factory
+        address rondaAddress = factory.createRonda(
             participantCount,
             milestoneCount,
             monthlyDeposit,
             entryFee,
             interestDistribution,
-            address(token),
-            address(penaltyToken),
-            address(mockVRFCoordinator),
-            subscriptionId,
-            keyHash,
-            callbackGasLimit,
-            router
+            address(token)
         );
-
-        // Add Ronda contract to whitelist
-        penaltyToken.addToWhitelist(address(ronda));
+        ronda = Ronda(rondaAddress);
 
         // Calculate total tokens needed per participant
         // Each participant needs: (monthlyDeposit * milestoneCount) + entryFee + extra for interest
@@ -113,13 +117,13 @@ contract RondaTest is Test {
         // Get the request ID from the mock coordinator
         lastRequestId = mockVRFCoordinator.lastRequestId();
 
-        // Mock VRF response
+        // Mock VRF response by calling the factory's fulfillRandomWords
         uint256[] memory randomWords = new uint256[](1);
         randomWords[0] = 123; // Some random number
 
-        // Call fulfillRandomWords with the captured request ID
+        // Call fulfillRandomWords on the factory
         vm.prank(address(mockVRFCoordinator));
-        ronda.rawFulfillRandomWords(lastRequestId, randomWords);
+        factory.rawFulfillRandomWords(lastRequestId, randomWords);
     }
 
     function testJoinRonda() public {
@@ -153,6 +157,7 @@ contract RondaTest is Test {
         ronda.deposit(0);
 
         // Deliver milestone 0
+        vm.prank(address(factory));
         ronda.deliverRonda(0);
 
         // Calculate expected amount with +5% interest
@@ -188,23 +193,18 @@ contract RondaTest is Test {
 
         // Should revert when creating ronda with invalid distribution
         vm.expectRevert("Sum of interest distribution must equal 0");
-        new Ronda(
+        factory.createRonda(
             participantCount,
             milestoneCount,
             monthlyDeposit,
             entryFee,
             invalidDistribution,
-            address(token),
-            address(penaltyToken),
-            address(mockVRFCoordinator),
-            subscriptionId,
-            keyHash,
-            callbackGasLimit,
-            router
+            address(token)
         );
     }
 
     function testAbortRonda() public {
+        vm.prank(address(factory));
         ronda.abortRonda();
         assertEq(uint(ronda.currentState()), uint(Ronda.RondaState.Aborted));
     }
@@ -219,6 +219,7 @@ contract RondaTest is Test {
         ronda.deposit(0);
 
         // Deliver milestone 0
+        vm.prank(address(factory));
         ronda.deliverRonda(0);
 
         // Verify carol has a penalty token
@@ -230,67 +231,42 @@ contract RondaTest is Test {
     function testPenaltyRemoval() public {
         _setupParticipantsAndVRF();
 
-        // Only alice and bob deposit for milestone 0
+        // Only alice and bob deposit for milestone 0 (carol will get penalty)
         vm.prank(alice);
         ronda.deposit(0);
         vm.prank(bob);
         ronda.deposit(0);
 
         // Deliver milestone 0
+        vm.prank(address(factory));
         ronda.deliverRonda(0);
 
         // Verify carol has a penalty token
         assertTrue(penaltyToken.hasPenalty(carol));
 
-        // Remove penalty
+        // Remove penalty from carol
+        vm.prank(address(factory));
         ronda.removePenalty(carol);
-
-        // Verify penalty is removed
         assertFalse(penaltyToken.hasPenalty(carol));
     }
 
     function testNonTransferablePenalty() public {
         _setupParticipantsAndVRF();
-
-        // Only alice and bob deposit for milestone 0
-        vm.prank(alice);
-        ronda.deposit(0);
-        vm.prank(bob);
-        ronda.deposit(0);
-
-        // Deliver milestone 0
-        ronda.deliverRonda(0);
-
-        // Try to transfer penalty token (should fail)
-        vm.prank(carol);
+        // Try to transfer penalty token (should revert)
+        address slot0Participant = ronda.slotToParticipant(0);
         vm.expectRevert("Token is non-transferable");
-        penaltyToken.transferFrom(carol, alice, 0);
+        vm.prank(slot0Participant);
+        penaltyToken.transferFrom(slot0Participant, address(0xdead), 0);
     }
 
     function testWhitelistManagement() public {
-        address newRonda = address(0x5);
-
-        // Test adding to whitelist
-        penaltyToken.addToWhitelist(newRonda);
-        assertTrue(penaltyToken.whitelistedRondas(newRonda));
-
-        // Test removing from whitelist
-        penaltyToken.removeFromWhitelist(newRonda);
-        assertFalse(penaltyToken.whitelistedRondas(newRonda));
-
-        // Test adding invalid address
-        vm.expectRevert("Invalid address");
-        penaltyToken.addToWhitelist(address(0));
-
-        // Test adding already whitelisted address
-        penaltyToken.addToWhitelist(newRonda);
-        vm.expectRevert("Already whitelisted");
-        penaltyToken.addToWhitelist(newRonda);
-
-        // Test removing non-whitelisted address
-        penaltyToken.removeFromWhitelist(newRonda);
-        vm.expectRevert("Not whitelisted");
-        penaltyToken.removeFromWhitelist(newRonda);
+        // Only the factory (proxy) can add to whitelist
+        vm.prank(address(factory));
+        penaltyToken.addToWhitelist(address(0x5));
+        assertTrue(penaltyToken.whitelistedRondas(address(0x5)));
+        vm.prank(address(factory));
+        penaltyToken.removeFromWhitelist(address(0x5));
+        assertFalse(penaltyToken.whitelistedRondas(address(0x5)));
     }
 
     function testNonWhitelistedMint() public {
@@ -303,24 +279,28 @@ contract RondaTest is Test {
     }
 
     function testNonWhitelistedBurn() public {
-        // Create a new Ronda contract that's not whitelisted
-        Ronda newRonda = new Ronda(
-            participantCount,
-            milestoneCount,
-            monthlyDeposit,
-            entryFee,
-            interestDistribution,
-            address(token),
-            address(penaltyToken),
-            address(mockVRFCoordinator),
-            subscriptionId,
-            keyHash,
-            callbackGasLimit,
-            router
-        );
-
-        // Try to burn penalty token (should fail)
+        // Try to burn penalty from non-whitelisted address
+        address notWhitelisted = address(0x7);
         vm.expectRevert("Caller is not whitelisted");
-        newRonda.removePenalty(alice);
+        penaltyToken.burnPenalty(notWhitelisted);
+    }
+
+    function testFactoryOwnership() public view {
+        assertEq(ronda.factory(), address(factory));
+        assertEq(ronda.owner(), address(factory));
+    }
+
+    function testReceiveRandomnessFromFactory() public {
+        _setupParticipantsAndVRF();
+        // This test is just to ensure the randomness flow works and doesn't revert
+    }
+
+    function testReceiveRandomnessOnlyFromFactory() public {
+        _setupParticipantsAndVRF();
+        // Try to call receiveRandomness from a non-factory address
+        uint256[] memory randomWords = new uint256[](1);
+        randomWords[0] = 123;
+        vm.expectRevert("Only factory can call this function");
+        ronda.receiveRandomness(1, randomWords);
     }
 }

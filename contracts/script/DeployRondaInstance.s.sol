@@ -11,7 +11,7 @@ contract DeployRondaInstance is Script {
     function run() public {
         // Load environment variables
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address factoryAddress = vm.envAddress("RONDA_FACTORY_ADDRESS");
+        address factoryAddress = vm.envAddress("RONDA_FACTORY_PROXY_ADDRESS");
         address paymentTokenAddress = vm.envAddress("PAYMENT_TOKEN_ADDRESS");
 
         // Start broadcasting transactions
@@ -21,7 +21,7 @@ contract DeployRondaInstance is Script {
         RondaFactory factory = RondaFactory(factoryAddress);
 
         // Ronda parameters
-        uint256 participantCount = 3;
+        uint256 participantCount = 2;
         uint256 milestoneCount = 3;
         uint256 monthlyDeposit = 0.0001 ether;
         uint256 entryFee = 0.0001 ether;
