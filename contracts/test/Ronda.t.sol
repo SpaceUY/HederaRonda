@@ -116,7 +116,9 @@ contract RondaTest is Test {
 
         // Get the request ID from the mock coordinator
         lastRequestId = mockVRFCoordinator.lastRequestId();
+    }
 
+    function _mockVRFResponse() internal {
         // Mock VRF response by calling the factory's fulfillRandomWords
         uint256[] memory randomWords = new uint256[](1);
         randomWords[0] = 123; // Some random number
@@ -147,6 +149,7 @@ contract RondaTest is Test {
 
     function testDepositAndDeliver() public {
         _setupParticipantsAndVRF();
+        _mockVRFResponse();
 
         // All deposit for milestone 0
         vm.prank(alice);
@@ -157,7 +160,6 @@ contract RondaTest is Test {
         ronda.deposit(0);
 
         // Deliver milestone 0
-        vm.prank(address(factory));
         ronda.deliverRonda(0);
 
         // Calculate expected amount with +5% interest
@@ -204,13 +206,13 @@ contract RondaTest is Test {
     }
 
     function testAbortRonda() public {
-        vm.prank(address(factory));
         ronda.abortRonda();
         assertEq(uint(ronda.currentState()), uint(Ronda.RondaState.Aborted));
     }
 
     function testPenaltyIssuance() public {
         _setupParticipantsAndVRF();
+        _mockVRFResponse();
 
         // Only alice and bob deposit for milestone 0
         vm.prank(alice);
@@ -219,7 +221,6 @@ contract RondaTest is Test {
         ronda.deposit(0);
 
         // Deliver milestone 0
-        vm.prank(address(factory));
         ronda.deliverRonda(0);
 
         // Verify carol has a penalty token
@@ -230,6 +231,7 @@ contract RondaTest is Test {
 
     function testPenaltyRemoval() public {
         _setupParticipantsAndVRF();
+        _mockVRFResponse();
 
         // Only alice and bob deposit for milestone 0 (carol will get penalty)
         vm.prank(alice);
@@ -238,7 +240,6 @@ contract RondaTest is Test {
         ronda.deposit(0);
 
         // Deliver milestone 0
-        vm.prank(address(factory));
         ronda.deliverRonda(0);
 
         // Verify carol has a penalty token
@@ -287,11 +288,12 @@ contract RondaTest is Test {
 
     function testFactoryOwnership() public view {
         assertEq(ronda.factory(), address(factory));
-        assertEq(ronda.owner(), address(factory));
+        assertEq(ronda.owner(), address(owner));
     }
 
     function testReceiveRandomnessFromFactory() public {
         _setupParticipantsAndVRF();
+        _mockVRFResponse();
         // This test is just to ensure the randomness flow works and doesn't revert
     }
 
@@ -300,7 +302,13 @@ contract RondaTest is Test {
         // Try to call receiveRandomness from a non-factory address
         uint256[] memory randomWords = new uint256[](1);
         randomWords[0] = 123;
-        vm.expectRevert("Only factory can call this function");
+        vm.prank(address(0x123));
+        vm.expectRevert("Only factory or owner can call this function");
+        ronda.receiveRandomness(1, randomWords);
+
+        _mockVRFResponse();
+
+        vm.expectRevert("Ronda must be in randomizing state");
         ronda.receiveRandomness(1, randomWords);
     }
 }

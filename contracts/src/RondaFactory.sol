@@ -119,6 +119,8 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable, VRF
 
         createdRondas[address(newRonda)] = true;
 
+        newRonda.transferOwnership(address(owner()));
+
         return address(newRonda);
     }
 

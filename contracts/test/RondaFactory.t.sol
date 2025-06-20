@@ -16,6 +16,7 @@ contract MockERC20 is ERC20 {
 }
 
 contract RondaFactoryTest is Test {
+    address public owner;
     RondaFactory public factory;
     RondaFactory public factoryImplementation;
     ERC1967Proxy public proxy;
@@ -54,6 +55,7 @@ contract RondaFactoryTest is Test {
 
         // Get the factory instance through the proxy
         factory = RondaFactory(address(proxy));
+        owner = factory.owner();
 
         penaltyToken.addToWhitelist(address(factory));
         penaltyToken.transferOwnership(address(factory));
@@ -182,7 +184,7 @@ contract RondaFactoryTest is Test {
         );
 
         Ronda ronda = Ronda(rondaAddress);
-        assertEq(ronda.owner(), address(factory));
+        assertEq(ronda.owner(), address(owner));
     }
 
     function test_RondaSBTOwnerIsFactory() public view {

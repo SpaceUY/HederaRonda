@@ -136,8 +136,8 @@ contract Ronda is Ownable, CCIPReceiver {
         _;
     }
 
-    modifier onlyFactory() {
-        require(msg.sender == factory, "Only factory can call this function");
+    modifier onlyOwnerOrFactory() {
+        require(msg.sender == factory || msg.sender == owner(), "Only factory or owner can call this function");
         _;
     }
 
@@ -162,7 +162,7 @@ contract Ronda is Ownable, CCIPReceiver {
         _depositInternal(msg.sender, milestone);
     }
 
-    function deliverRonda(uint256 _milestone) external onlyOwner onlyRunning {
+    function deliverRonda(uint256 _milestone) external onlyOwnerOrFactory onlyRunning {
         require(_milestone < milestoneCount, "Invalid milestone");
         bool penaltyIssued = _checkAndIssuePenalties(_milestone);
         if (penaltyIssued) {
@@ -188,7 +188,7 @@ contract Ronda is Ownable, CCIPReceiver {
         }
     }
 
-    function abortRonda() external onlyOwner {
+    function abortRonda() external onlyOwnerOrFactory{
         require(
             currentState != RondaState.Finalized,
             "Cannot abort finalized ronda"
@@ -212,7 +212,7 @@ contract Ronda is Ownable, CCIPReceiver {
     function receiveRandomness(
         uint256 requestId,
         uint256[] calldata randomWords
-    ) external onlyFactory {
+    ) external onlyOwnerOrFactory {
         require(
             currentState == RondaState.Randomizing,
             "Ronda must be in randomizing state"
@@ -279,7 +279,7 @@ contract Ronda is Ownable, CCIPReceiver {
     }
 
     // Function to remove penalty when participant pays their dues
-    function removePenalty(address _participant) external onlyOwner {
+    function removePenalty(address _participant) external onlyOwnerOrFactory{
         penaltyToken.burnPenalty(_participant);
     }
 
@@ -377,14 +377,14 @@ contract Ronda is Ownable, CCIPReceiver {
     function addSupportedChain(
         uint64 chainSelector,
         address senderContract
-    ) external onlyOwner {
+    ) external onlyOwnerOrFactory{
         supportedChains[chainSelector] = true;
         senderContracts[chainSelector] = senderContract;
     }
 
     function removeSupportedChain(
         uint64 chainSelector
-    ) external onlyOwner {
+    ) external onlyOwnerOrFactory{
         supportedChains[chainSelector] = false;
         delete senderContracts[chainSelector];
     }
