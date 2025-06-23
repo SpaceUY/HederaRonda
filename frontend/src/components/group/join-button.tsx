@@ -45,10 +45,10 @@ export function JoinButton({ group, isDisabled }: JoinButtonProps) {
 
   // Get RONDA state name for display - using the same mapping as the working status functions
   const getStateName = (state: number | null) => {
-    if (state === null) return 'Unknown';
+    if (state === null) { return 'Open'; }
     
     const stateNames = ['Open', 'Running', 'Finalized', 'Aborted', 'Randomizing'];
-    return stateNames[state] || 'Unknown';
+    return stateNames[state] || 'Open';
   };
 
   // If user is already a member, show contribute button (only if RONDA is running)

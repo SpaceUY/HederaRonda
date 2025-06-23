@@ -18,6 +18,7 @@ import {
 import React, { useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
 
+import { PenaltyStatusBadge } from '@/components/penalty/penalty-status-badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,8 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useRoscaJoin, JoinStep } from '@/hooks/use-rosca-join';
-import { PenaltyStatusBadge } from '@/components/penalty/penalty-status-badge';
+import { useRoscaJoin } from '@/hooks/use-rosca-join';
 import { useTokenFormatter } from '@/hooks/use-token-formatter';
 
 interface JoinRoscaButtonProps {
@@ -256,8 +256,8 @@ export function JoinRoscaButton({
             hasPenalties={hasPenalties}
             penaltyCount={penaltyCount}
             isLoading={isPenaltyCheckLoading}
-            error={penaltyError}
-            walletAddress={address}
+            error={penaltyError || ''}
+            walletAddress={address || ''}
           />
           
           {hasPenalties && (

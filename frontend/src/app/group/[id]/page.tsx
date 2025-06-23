@@ -2,7 +2,6 @@
 
 import { Users, Calendar, DollarSign, Clock, Shield, CheckCircle, AlertTriangle, RefreshCw, Network, ExternalLink, Zap } from 'lucide-react';
 import { notFound } from 'next/navigation';
-import { useState, useEffect } from 'react';
 
 import { JoinButton } from '@/components/group/join-button';
 import { Header } from '@/components/layout/header';
@@ -10,10 +9,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useTokenFormatter } from '@/hooks/use-token-formatter';
 import { useSingleRondaContract } from '@/hooks/use-single-ronda-contract';
+import { useTokenFormatter } from '@/hooks/use-token-formatter';
 import { useVerification } from '@/hooks/use-verification';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 
 interface GroupDetailPageProps {
   params: {

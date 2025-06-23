@@ -60,7 +60,7 @@ export async function checkPenaltyTokens(
     console.log('📋 Calling balanceOf for penalty tokens...');
 
     // Check penalty token balance
-    const balance = await penaltyContract.balanceOf(walletAddress);
+    const balance = await penaltyContract?.balanceOf?.(walletAddress);
     const penaltyCount = Number(balance);
 
     console.log('✅ Penalty token check result:', {
@@ -107,9 +107,9 @@ export async function getPenaltyContractInfo(): Promise<{
     );
 
     const [name, symbol, totalSupply] = await Promise.all([
-      penaltyContract.name().catch(() => 'Unknown'),
-      penaltyContract.symbol().catch(() => 'PENALTY'),
-      penaltyContract.totalSupply().catch(() => 0n),
+      penaltyContract?.name?.().catch(() => 'Unknown'),
+      penaltyContract?.symbol?.().catch(() => 'PENALTY'),
+      penaltyContract?.totalSupply?.().catch(() => 0n),
     ]);
 
     return {

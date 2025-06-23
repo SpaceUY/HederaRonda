@@ -50,7 +50,11 @@ export class TokenFormatter {
     // Check cache first using token address as key
     if (paymentTokenCache[tokenAddress]) {
       console.log('📋 Using cached token info for address:', tokenAddress);
-      return paymentTokenCache[tokenAddress];
+      return paymentTokenCache[tokenAddress] || {
+        symbol: 'MTK',
+        decimals: 6,
+        address: '0x0000000000000000000000000000000000000000',
+      };
     }
 
     try {
@@ -79,8 +83,8 @@ export class TokenFormatter {
       );
 
       const [symbol, decimals] = await Promise.all([
-        tokenContract.symbol(),
-        tokenContract.decimals(),
+        tokenContract?.symbol?.(),
+        tokenContract?.decimals?.(),
       ]);
 
       const tokenInfo: TokenInfo = {
@@ -121,7 +125,11 @@ export class TokenFormatter {
     // Check cache first
     if (paymentTokenCache[contractAddress]) {
       console.log('📋 Using cached payment token info for:', contractAddress);
-      return paymentTokenCache[contractAddress];
+      return paymentTokenCache[contractAddress] || {
+        symbol: 'MTK',
+        decimals: 6,
+        address: '0x0000000000000000000000000000000000000000',
+      };
     }
 
     try {
@@ -134,7 +142,7 @@ export class TokenFormatter {
         this.provider
       );
 
-      const paymentTokenAddress = await rondaContract.paymentToken();
+      const paymentTokenAddress = await rondaContract?.paymentToken?.();
       console.log('💰 Payment token address:', paymentTokenAddress);
 
       // Use the direct token info method
@@ -202,7 +210,7 @@ export class TokenFormatter {
    * Format number to show only significant digits without trailing zeros
    */
   private formatToSignificantDigits(num: number, maxDecimals: number): string {
-    if (num === 0) return '0';
+    if (num === 0) {return '0';}
     
     // Use toFixed to get the desired decimal places, then remove trailing zeros
     const fixed = num.toFixed(maxDecimals);
@@ -232,7 +240,7 @@ export class TokenFormatter {
     // Check cache first
     if (entryFeeCache[contractAddress]) {
       console.log('📋 Using cached entry fee for:', contractAddress);
-      return entryFeeCache[contractAddress].formatted;
+      return entryFeeCache[contractAddress]?.formatted || '0.001 MTK';
     }
 
     try {
@@ -247,7 +255,7 @@ export class TokenFormatter {
       // Try to get entry fee from contract
       let entryFeeAmount: bigint;
       try {
-        entryFeeAmount = await rondaContract.entryFee();
+        entryFeeAmount = await rondaContract?.entryFee?.();
       } catch (error) {
         console.warn('⚠️ entryFee() method not available, using mock value');
         // Use mock value: 0.001 ETH

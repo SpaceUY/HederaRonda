@@ -32,10 +32,10 @@ export function usePenaltyCheck(): UsePenaltyCheckReturn {
         return;
       }
 
-      setPenaltyResult((prev) => ({
+      setPenaltyResult((prev: PenaltyCheckResult) => ({
         ...prev,
         isLoading: true,
-        error: undefined,
+        error: '',
       }));
 
       try {

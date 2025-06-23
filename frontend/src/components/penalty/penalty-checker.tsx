@@ -94,7 +94,7 @@ export function PenaltyChecker({
           hasPenalties={hasPenalties}
           penaltyCount={penaltyCount}
           isLoading={isLoading}
-          error={error}
+          error={error || ''}
           walletAddress={walletAddress || manualAddress}
           onRetry={handleRetry}
         />

@@ -1,6 +1,6 @@
 'use client';
 
-import { Calendar, Users, DollarSign, Clock, Eye, RefreshCw, AlertTriangle, Network, TrendingUp, Award } from 'lucide-react';
+import { Users, DollarSign, Clock, Eye, RefreshCw, AlertTriangle, Network, Award } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { RondaContractData } from '@/hooks/use-ronda-contracts';
 import { tokenFormatter } from '@/lib/token-formatter';
-import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface ContractGroupsGridProps {
   rondas: RondaContractData[];
@@ -35,7 +34,7 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
   // Format amounts for all RONDAs
   useEffect(() => {
     const formatAllAmounts = async () => {
-      if (rondas.length === 0) return;
+      if (rondas.length === 0) {return;}
 
       setIsFormattingAmounts(true);
       const newFormattedAmounts: FormattedAmounts = {};
@@ -121,23 +120,6 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
         return '🔄 Assigning Positions...';
       default:
         return state;
-    }
-  };
-
-  const getStatusIcon = (state: string) => {
-    switch (state.toLowerCase()) {
-      case 'open':
-        return '🟢';
-      case 'running':
-        return '🟡';
-      case 'finalized':
-        return '✅';
-      case 'aborted':
-        return '❌';
-      case 'randomizing':
-        return '🔄';
-      default:
-        return '⚪';
     }
   };
 

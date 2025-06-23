@@ -165,7 +165,7 @@ export default function AuthPage() {
 
       <div className="max-w-2xl mx-auto">
         <PenaltyChecker 
-          walletAddress={verificationState.walletAddress || undefined}
+          walletAddress={verificationState.walletAddress || ''}
           autoCheck={true}
           showManualCheck={false}
         />

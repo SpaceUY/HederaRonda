@@ -119,6 +119,7 @@ export function CreateRondaForm() {
     } else {
       setTokenInfo(null);
       setTokenError(null);
+      return;
     }
   }, [watchedValues.paymentToken]);
 
@@ -128,7 +129,7 @@ export function CreateRondaForm() {
 
       // Calculate interest distribution
       const preset = INTEREST_PRESETS[data.interestDistribution];
-      const interestDistribution = preset.calculate(data.milestoneCount);
+      const interestDistribution = preset?.calculate(data.milestoneCount);
 
       // Convert amounts to wei
       const monthlyDepositWei = tokenInfo?.symbol === 'ETH' 
@@ -148,7 +149,7 @@ export function CreateRondaForm() {
         milestoneCount: data.milestoneCount,
         monthlyDeposit: monthlyDepositWei,
         entryFee: entryFeeWei,
-        interestDistribution,
+        interestDistribution: interestDistribution || [],
         paymentToken: data.paymentToken,
       });
     } catch (error: any) {
@@ -323,7 +324,6 @@ export function CreateRondaForm() {
         </CardContent>
       </Card>
 
-      {/* Financial Settings */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
@@ -440,7 +440,6 @@ export function CreateRondaForm() {
         </CardContent>
       </Card>
 
-      {/* Interest Distribution */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
@@ -466,8 +465,7 @@ export function CreateRondaForm() {
                     <div className="text-sm text-muted-foreground">{preset.description}</div>
                   </Label>
                   
-                  {/* Preview for selected option */}
-                  {watchedValues.interestDistribution === key && previewDistribution.length > 0 && (
+                  {watchedValues.interestDistribution === key && previewDistribution.length > 0 ? (
                     <div className="p-3 bg-muted/30 rounded-lg">
                       <div className="text-sm font-medium mb-2">Distribution Preview:</div>
                       <div className="flex flex-wrap gap-2">
@@ -485,7 +483,7 @@ export function CreateRondaForm() {
                         Sum: {previewDistribution.reduce((sum, val) => sum + val, 0)} (must equal 0)
                       </div>
                     </div>
-                  )}
+                  ): null}
                 </div>
               </div>
             ))}
@@ -494,7 +492,7 @@ export function CreateRondaForm() {
       </Card>
 
       {/* Gas Estimation */}
-      {estimatedGas && estimatedGasCost && (
+      {estimatedGas && estimatedGasCost ? (
         <Card className="border-l-4 border-l-info">
           <CardContent className="p-4">
             <div className="flex items-center space-x-2 mb-2">
@@ -513,7 +511,7 @@ export function CreateRondaForm() {
             </div>
           </CardContent>
         </Card>
-      )}
+      ): null}
 
       {/* Error Display */}
       {error && (

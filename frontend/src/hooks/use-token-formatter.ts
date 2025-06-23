@@ -25,7 +25,7 @@ export function useTokenFormatter(
 ): UseTokenFormatterReturn {
   const [state, setState] = useState<TokenFormatterState>({
     monthlyDeposit: '0.0000 MTK',
-    entryFee: '0.001 ETH',
+    entryFee: '0.001 MTK',
     totalContribution: '0.0000 MTK',
     isLoading: false,
     error: null,
@@ -63,9 +63,9 @@ export function useTokenFormatter(
       const [monthlyDeposit, entryFee, totalContribution] = await Promise.all(promises);
 
       setState({
-        monthlyDeposit,
-        entryFee,
-        totalContribution,
+        monthlyDeposit: monthlyDeposit || '0.0000 MTK',
+        entryFee: entryFee || '0.001 MTK',
+        totalContribution: totalContribution || '0.0000 MTK',
         isLoading: false,
         error: null,
       });
