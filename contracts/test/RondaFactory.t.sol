@@ -7,7 +7,7 @@ import {Ronda} from "../src/Ronda.sol";
 import {RondaSBT} from "../src/RondaSBT.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {MockVRFCoordinator} from "./mocks/MockVrfCoordination.sol";
+import {MockVRFCoordinator} from "./mocks/MockVrfCoordinator.sol";
 
 contract MockERC20 is ERC20 {
     constructor() ERC20("Mock Token", "MTK") {
@@ -23,7 +23,7 @@ contract RondaFactoryTest is Test {
     RondaSBT public penaltyToken;
     MockERC20 public paymentToken;
     MockVRFCoordinator public mockVRFCoordinator;
-    uint64 public subscriptionId = 1;
+    uint256 public subscriptionId = 1;
     bytes32 public keyHash = bytes32(uint256(1));
     uint32 public callbackGasLimit = 100000;
     address public router = address(0x456);
@@ -32,6 +32,9 @@ contract RondaFactoryTest is Test {
         penaltyToken = new RondaSBT();
         paymentToken = new MockERC20();
         mockVRFCoordinator = new MockVRFCoordinator();
+        
+        // Create a subscription for the factory
+        subscriptionId = mockVRFCoordinator.createSubscription();
         
         // Deploy the implementation contract
         factoryImplementation = new RondaFactory();
@@ -62,7 +65,7 @@ contract RondaFactoryTest is Test {
     }
 
     function test_DeployFactory() public view {
-        assertEq(address(factory.vrfCoordinator()), address(mockVRFCoordinator));
+        assertEq(factory.vrfCoordinator(), address(mockVRFCoordinator));
         assertEq(factory.subscriptionId(), subscriptionId);
         assertEq(factory.keyHash(), keyHash);
         assertEq(factory.callbackGasLimit(), callbackGasLimit);
@@ -184,7 +187,7 @@ contract RondaFactoryTest is Test {
         );
 
         Ronda ronda = Ronda(rondaAddress);
-        assertEq(ronda.owner(), address(owner));
+        assertEq(ronda.owner(), address(factory));
     }
 
     function test_RondaSBTOwnerIsFactory() public view {
@@ -287,34 +290,5 @@ contract RondaFactoryTest is Test {
         vm.prank(address(0x123));
         vm.expectRevert();
         factory.addSupportedChain(0, chainSelector, senderContract);
-    }
-
-    function test_VRFRequestForRonda() public {
-        // Create a Ronda instance
-        uint256 participantCount = 3;
-        uint256 milestoneCount = 3;
-        uint256 monthlyDeposit = 100 ether;
-        uint256 entryFee = 10 ether;
-
-        int256[] memory interestDistribution = new int256[](milestoneCount);
-        interestDistribution[0] = 5;
-        interestDistribution[1] = -2;
-        interestDistribution[2] = -3;
-
-        address rondaAddress = factory.createRonda(
-            participantCount,
-            milestoneCount,
-            monthlyDeposit,
-            entryFee,
-            interestDistribution,
-            address(paymentToken)
-        );
-
-        // Test requesting randomness for a valid ronda
-        factory.requestRandomnessForRonda(rondaAddress);
-
-        // Test requesting randomness for an invalid ronda
-        vm.expectRevert("Ronda not from this factory");
-        factory.requestRandomnessForRonda(address(0x123));
     }
 }

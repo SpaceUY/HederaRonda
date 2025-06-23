@@ -6,10 +6,9 @@ import {RondaSBT} from "./RondaSBT.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {VRFConsumerBaseV2Upgradeable} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Upgradeable.sol";
-import {VRFCoordinatorV2Interface} from "@chainlink/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
+import {IVRFCoordinatorV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
 
-contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable, VRFConsumerBaseV2Upgradeable {
+contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     // Events
     event RondaCreated(
         address indexed rondaAddress,
@@ -21,43 +20,17 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable, VRF
         address penaltyToken
     );
 
-    event RandomnessRequested(
-        address indexed rondaAddress,
-        uint256 requestId
-    );
-
-    event RandomnessFulfilled(
-        address indexed rondaAddress,
-        uint256 requestId,
-        uint256[] randomWords
-    );
-
-    // State variables (changed from immutable to storage)
+    // State variables
     address public vrfCoordinator;
-    uint64 public subscriptionId;
+    uint256 public subscriptionId;
     bytes32 public keyHash;
     uint32 public callbackGasLimit;
     RondaSBT public penaltyToken;
     address public router;
 
-    // VRF constants
-    uint16 private constant REQUEST_CONFIRMATIONS = 3;
-    uint32 private constant NUM_WORDS = 1;
-
-    // Array to track all created Ronda instances
     address[] public rondaInstances;
 
-    // Mapping to track VRF requests
-    mapping(uint256 => address) public vrfRequestToRonda;
-
-    // Mapping to track created Rondas
     mapping(address => bool) public createdRondas;
-
-    // Modifier to check if Ronda was created by this factory
-    modifier onlyCreatedRonda(address rondaAddress) {
-        require(createdRondas[rondaAddress], "Ronda not from this factory");
-        _;
-    }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -74,10 +47,9 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable, VRF
     ) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
-        __VRFConsumerBaseV2_init(_vrfCoordinator);
         
         vrfCoordinator = _vrfCoordinator;
-        subscriptionId = uint64(_subscriptionId);
+        subscriptionId = _subscriptionId;
         keyHash = _keyHash;
         callbackGasLimit = _callbackGasLimit;
         penaltyToken = RondaSBT(_penaltyToken);
@@ -100,10 +72,16 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable, VRF
             _interestDistribution,
             _paymentToken,
             address(penaltyToken),
-            router
+            router,
+            vrfCoordinator,
+            subscriptionId,
+            keyHash,
+            callbackGasLimit
         );
 
         rondaInstances.push(address(newRonda));
+
+        IVRFCoordinatorV2Plus(vrfCoordinator).addConsumer(subscriptionId, address(newRonda));
 
         emit RondaCreated(
             address(newRonda),
@@ -119,39 +97,7 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable, VRF
 
         createdRondas[address(newRonda)] = true;
 
-        newRonda.transferOwnership(address(owner()));
-
         return address(newRonda);
-    }
-
-    function requestRandomnessForRonda(address rondaAddress) external onlyCreatedRonda(rondaAddress) {
-        require(rondaAddress != address(0), "Invalid ronda address");
-
-        uint256 requestId = VRFCoordinatorV2Interface(vrfCoordinator).requestRandomWords(
-            keyHash,
-            subscriptionId,
-            REQUEST_CONFIRMATIONS,
-            callbackGasLimit,
-            NUM_WORDS
-        );
-
-        vrfRequestToRonda[requestId] = rondaAddress;
-
-        emit RandomnessRequested(rondaAddress, requestId);
-    }
-
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] memory randomWords
-    ) internal override {
-        address rondaAddress = vrfRequestToRonda[requestId];
-        require(rondaAddress != address(0), "Invalid request ID");
-
-        Ronda(rondaAddress).receiveRandomness(requestId, randomWords);
-
-        delete vrfRequestToRonda[requestId];
-
-        emit RandomnessFulfilled(rondaAddress, requestId, randomWords);
     }
 
     function getRondaCount() external view returns (uint256) {
@@ -160,6 +106,20 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable, VRF
 
     function getRondaInstances() external view returns (address[] memory) {
         return rondaInstances;
+    }
+
+    function deliverRonda(uint256 rondaId, uint256 milestone) external onlyOwner {
+        require(rondaId < rondaInstances.length, "Invalid ronda ID");
+        Ronda(rondaInstances[rondaId]).deliverRonda(milestone);
+    }
+
+    // VRF V2.5 subscription management functions
+    function acceptSubscriptionOwnership() external onlyOwner {
+        IVRFCoordinatorV2Plus(vrfCoordinator).acceptSubscriptionOwnerTransfer(subscriptionId);
+    }
+
+    function requestSubscriptionOwnerTransfer(address newOwner) external onlyOwner {
+        IVRFCoordinatorV2Plus(vrfCoordinator).requestSubscriptionOwnerTransfer(subscriptionId, newOwner);
     }
 
     function mintPenalty(address _participant) external onlyOwner {

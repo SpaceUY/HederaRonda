@@ -28,9 +28,9 @@ contract DeployRondaInstance is Script {
 
         // Create interest distribution that sums to 0
         int256[] memory interestDistribution = new int256[](milestoneCount);
-        interestDistribution[0] = 5; // +5%
-        interestDistribution[1] = -2; // -2%
-        interestDistribution[2] = -3; // -3%
+        interestDistribution[0] = -3;
+        interestDistribution[1] = -2;
+        interestDistribution[2] = 5;
 
         // Create new Ronda instance
         address rondaAddress = factory.createRonda(
