@@ -174,7 +174,7 @@ export function WorldIdVerifier({ onSuccess, onError, isVerified = false }: Worl
           handleVerify={handleProof}
           verification_level={VerificationLevel.Device}
         >
-          {({ open }) => (
+          {({ open }: { open: () => void }) => (
             <Button 
               onClick={() => {
                 console.log('🚀 Starting World ID verification process');

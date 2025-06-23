@@ -21,9 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRondaDeposit, DepositStep } from '@/hooks/use-ronda-deposit';
-
-
+import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
 interface DepositButtonProps {
   roscaContractAddress: string;
   milestoneIndex?: number;
@@ -42,7 +40,7 @@ export function DepositButton({
   disabled = false,
   className 
 }: DepositButtonProps) {
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const chainId = useChainId();
   const [showDetails, setShowDetails] = useState(false);
 
@@ -57,7 +55,6 @@ export function DepositButton({
     hasEnoughBalance,
     needsApproval,
     estimatedGas,
-    estimatedGasCost,
     estimatedGasCostFormatted,
     isEstimatingGas,
     monthlyDepositFormatted,
@@ -172,7 +169,6 @@ export function DepositButton({
 
   return (
     <div className="space-y-4">
-      {/* Main Deposit Button */}
       <Button
         onClick={handleClick}
         disabled={isButtonDisabled}
@@ -189,7 +185,6 @@ export function DepositButton({
         <span className="ml-2">{getButtonText()}</span>
       </Button>
 
-      {/* Not a Member Alert */}
       {!isMember && isConnected && !isWrongNetwork && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -199,7 +194,6 @@ export function DepositButton({
         </Alert>
       )}
 
-      {/* RONDA Not Running Alert */}
       {isMember && !isRondaRunning && (
         <Alert variant="destructive">
           <Clock className="h-4 w-4" />
@@ -211,7 +205,6 @@ export function DepositButton({
         </Alert>
       )}
 
-      {/* Already Deposited Alert */}
       {hasAlreadyDeposited && (
         <Alert>
           <CheckCircle className="h-4 w-4" />
@@ -221,7 +214,6 @@ export function DepositButton({
         </Alert>
       )}
 
-      {/* Milestone Information */}
       {canMakeDeposits && !hasAlreadyDeposited && milestoneInfo && (
         <Card className="border-l-4 border-l-info">
           <CardContent className="p-4">
@@ -263,8 +255,7 @@ export function DepositButton({
         </Card>
       )}
 
-      {/* Gas Estimation Display */}
-      {canMakeDeposits && !hasAlreadyDeposited && estimatedGas && estimatedGasCostFormatted && !isEstimatingGas && (
+      {canMakeDeposits && !hasAlreadyDeposited && estimatedGas && estimatedGasCostFormatted && !isEstimatingGas ? (
         <Card className="border-l-4 border-l-success">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -298,7 +289,7 @@ export function DepositButton({
             )}
           </CardContent>
         </Card>
-      )}
+      ): null}
 
       {/* Status Information */}
       {(step !== 'idle' || !hasEnoughBalance || isWrongNetwork || isEstimatingGas || isCheckingMembership || needsApproval || !isMember || !isRondaRunning || hasAlreadyDeposited) && (
@@ -467,11 +458,11 @@ export function DepositButton({
                   <div className="text-xs text-muted-foreground font-mono">
                     {depositHash.slice(0, 10)}...{depositHash.slice(-8)}
                   </div>
-                  {estimatedGas && (
+                  {estimatedGas ? (
                     <div className="text-xs text-muted-foreground">
                       Gas Used: {estimatedGas.toLocaleString()} units
                     </div>
-                  )}
+                  ): null}
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <a 
@@ -552,8 +543,7 @@ export function DepositButton({
               </div>
             </div>
 
-            {/* Gas Information */}
-            {estimatedGas && estimatedGasCostFormatted && (
+            {estimatedGas && estimatedGasCostFormatted ? (
               <div className="pt-3 border-t">
                 <h4 className="font-medium text-sm mb-2">Gas Estimation</h4>
                 <div className="grid grid-cols-2 gap-4 text-xs">
@@ -577,7 +567,7 @@ export function DepositButton({
                   </div>
                 </div>
               </div>
-            )}
+            ): null}
 
             <div className="pt-3 border-t">
               <div className="space-y-2 text-xs">

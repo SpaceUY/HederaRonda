@@ -103,12 +103,12 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         entryFee,
         paymentToken
       ] = await Promise.all([
-        rondaContract.currentState(),
-        rondaContract.participantCount(), // This is max participants
-        rondaContract.milestoneCount(),
-        rondaContract.monthlyDeposit(),
-        rondaContract.entryFee(),
-        rondaContract.paymentToken()
+        rondaContract?.currentState?.(),
+        rondaContract?.participantCount?.(), // This is max participants
+        rondaContract?.milestoneCount?.(),
+        rondaContract?.monthlyDeposit?.(),
+        rondaContract?.entryFee?.(),
+        rondaContract?.paymentToken?.()
       ]);
 
       // Determine if using ETH or ERC20
@@ -128,8 +128,8 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
           ], provider);
           
           const [symbol, decimals] = await Promise.all([
-            tokenContract.symbol(),
-            tokenContract.decimals()
+            tokenContract?.symbol?.(),
+            tokenContract?.decimals?.()
           ]);
           
           tokenSymbol = symbol;
@@ -143,7 +143,7 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       let creator, creationTime, lastMilestoneTime, totalDeposited;
       try {
         [creator, creationTime, lastMilestoneTime, totalDeposited] = await Promise.all([
-          rondaContract.owner().catch(() => null),
+          rondaContract?.owner?.().catch(() => null),
           Promise.resolve(null), // creationTime not available in new ABI
           Promise.resolve(null), // lastMilestoneTime not available in new ABI
           Promise.resolve(null)  // totalDeposited not available in new ABI
@@ -161,7 +161,7 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         let i = 0;
         while (true) {
           try {
-            const participant = await rondaContract.joinedParticipants(i);
+            const participant = await rondaContract?.joinedParticipants?.(i);
             if (participant !== ethers.ZeroAddress) {
               joinedParticipants.push(participant);
               currentParticipantCount++;
@@ -188,7 +188,7 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         const maxParticipantsNum = Number(maxParticipants);
         for (let i = 0; i < maxParticipantsNum; i++) {
           try {
-            const participant = await rondaContract.slotToParticipant(i);
+            const participant = await rondaContract?.slotToParticipant?.(i);
             if (participant !== ethers.ZeroAddress) {
               participants.push(participant);
             }
@@ -210,13 +210,13 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       
       for (let i = 0; i < milestoneCountNum; i++) {
         try {
-          const milestone = await rondaContract.milestones(i);
+          const milestone = await rondaContract?.milestones?.(i);
           milestones.push({
             index: i,
             isCompleted: milestone[0],
             totalDeposits: milestone[1].toString(),
             requiredDeposits: milestone[2].toString(),
-            date: undefined // Date calculation would need additional logic
+             // Date calculation would need additional logic
           });
         } catch (err) {
           console.warn(`⚠️ Could not fetch milestone ${i}:`, err);
@@ -284,10 +284,10 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         nextRoundStart,
         duration,
         creator,
-        creationTime: creationTime ? Number(creationTime) : undefined,
+        creationTime: creationTime ? Number(creationTime) : 0,
         creationDate,
-        lastMilestoneTime: lastMilestoneTime ? Number(lastMilestoneTime) : undefined,
-        totalDeposited: totalDeposited?.toString(),
+        lastMilestoneTime: lastMilestoneTime ? Number(lastMilestoneTime) : 0,
+        totalDeposited: totalDeposited ? (totalDeposited as bigint).toString() : '0',
         totalDepositedFormatted,
         availableSpots,
         totalContribution,

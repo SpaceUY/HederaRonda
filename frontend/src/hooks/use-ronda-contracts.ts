@@ -66,7 +66,7 @@ export function useRondaContracts(): UseRondaContractsReturn {
       console.log('📋 Fetching RONDA instances from proxy factory...');
       
       // Get all RONDA instances through proxy
-      const rondaCount = await proxyFactoryContract.getRondaCount();
+      const rondaCount = await proxyFactoryContract?.getRondaCount?.();
       console.log(`📊 Found ${rondaCount} RONDA instances via proxy`);
 
       if (Number(rondaCount) === 0) {
@@ -75,7 +75,7 @@ export function useRondaContracts(): UseRondaContractsReturn {
         return;
       }
 
-      const rondaInstances = await proxyFactoryContract.getRondaInstances();
+      const rondaInstances = await proxyFactoryContract?.getRondaInstances?.();
       console.log('🏭 RONDA instances via proxy:', rondaInstances);
 
       // Fetch data for each RONDA instance
@@ -94,12 +94,12 @@ export function useRondaContracts(): UseRondaContractsReturn {
             entryFee,
             paymentToken
           ] = await Promise.all([
-            rondaContract.currentState(),
-            rondaContract.participantCount(), // This is max participants
-            rondaContract.milestoneCount(),
-            rondaContract.monthlyDeposit(),
-            rondaContract.entryFee(),
-            rondaContract.paymentToken()
+            rondaContract?.currentState?.(),
+            rondaContract?.participantCount?.(), // This is max participants
+            rondaContract?.milestoneCount?.(),
+            rondaContract?.monthlyDeposit?.(),
+            rondaContract?.entryFee?.(),
+            rondaContract?.paymentToken?.()
           ]);
 
           // Get current joined participants using joinedParticipants array
@@ -111,7 +111,7 @@ export function useRondaContracts(): UseRondaContractsReturn {
             let i = 0;
             while (true) {
               try {
-                const participant = await rondaContract.joinedParticipants(i);
+                const participant = await rondaContract?.joinedParticipants?.(i);
                 if (participant !== ethers.ZeroAddress) {
                   joinedParticipants.push(participant);
                   currentParticipantCount++;
@@ -135,7 +135,7 @@ export function useRondaContracts(): UseRondaContractsReturn {
             const maxParticipantsNum = Number(maxParticipants);
             for (let i = 0; i < maxParticipantsNum; i++) {
               try {
-                const participant = await rondaContract.slotToParticipant(i);
+                const participant = await rondaContract?.slotToParticipant?.(i);
                 if (participant !== ethers.ZeroAddress) {
                   participants.push(participant);
                 }
@@ -154,7 +154,7 @@ export function useRondaContracts(): UseRondaContractsReturn {
           
           for (let i = 0; i < milestoneCountNum; i++) {
             try {
-              const milestone = await rondaContract.milestones(i);
+              const milestone = await rondaContract?.milestones?.(i);
               milestones.push({
                 index: i,
                 isCompleted: milestone[0],

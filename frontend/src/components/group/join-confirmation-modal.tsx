@@ -12,17 +12,14 @@ import {
   Users, 
   Clock, 
   Network,
-  Zap,
   Activity,
-  Eye,
   RefreshCw,
   Send,
   ArrowRight
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
@@ -159,14 +156,14 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
         );
 
         // Check current allowance
-        const currentAllowance = await tokenContract.allowance(
+        const currentAllowance = await tokenContract?.allowance?.(
           address || ethers.ZeroAddress,
           CCIP_CONFIG.sourceChain.ccipRouterAddress
         );
 
         // Check token balance
-        const tokenBalance = await tokenContract.balanceOf(address || ethers.ZeroAddress);
-        const tokenSymbol = await tokenContract.symbol();
+        const tokenBalance = await tokenContract?.balanceOf?.(address || ethers.ZeroAddress);
+        const tokenSymbol = await tokenContract?.symbol?.();
 
         testResult.tokenApproval = {
           success: true,
@@ -197,10 +194,10 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
 
       try {
         // Check if destination chain is supported
-        const isSupported = await ccipRouter.isChainSupported(CCIP_CONFIG.destinationChain.ccipChainSelector);
+        const isSupported = await ccipRouter?.isChainSupported?.(CCIP_CONFIG.destinationChain.ccipChainSelector);
         
         // Get supported tokens for the destination chain
-        const supportedTokens = await ccipRouter.getSupportedTokens(CCIP_CONFIG.destinationChain.ccipChainSelector);
+        const supportedTokens = await ccipRouter?.getSupportedTokens?.(CCIP_CONFIG.destinationChain.ccipChainSelector);
         
         testResult.ccipRouterTest = {
           success: true,
@@ -245,7 +242,7 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
         };
 
         // Get fee estimation from CCIP Router
-        const feeInWei = await ccipRouter.getFee(CCIP_CONFIG.destinationChain.ccipChainSelector, ccipMessage);
+        const feeInWei = await ccipRouter?.getFee?.(CCIP_CONFIG.destinationChain.ccipChainSelector, ccipMessage);
         const feeInEth = ethers.formatEther(feeInWei);
         const feeInUsd = (parseFloat(feeInEth) * 2500).toFixed(2); // Mock ETH price
 

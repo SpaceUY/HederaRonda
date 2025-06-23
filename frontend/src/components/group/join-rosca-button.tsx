@@ -170,7 +170,6 @@ export function JoinRoscaButton({
         <span className="ml-2">{getButtonText()}</span>
       </Button>
 
-      {/* Already Member Alert */}
       {isAlreadyMember && (
         <Alert>
           <CheckCircle className="h-4 w-4" />
@@ -180,8 +179,7 @@ export function JoinRoscaButton({
         </Alert>
       )}
 
-      {/* Entry Fee & Total Cost Display */}
-      {!isAlreadyMember && parseFloat(entryFeeFormatted) > 0 && (
+      {!isAlreadyMember && parseFloat(entryFeeFormatted) > 0 ? (
         <Card className="border-l-4 border-l-warning">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -213,10 +211,9 @@ export function JoinRoscaButton({
             </div>
           </CardContent>
         </Card>
-      )}
+      ): null}
 
-      {/* Gas Estimation Display */}
-      {!isAlreadyMember && estimatedGas && estimatedGasCostFormatted && !isEstimatingGas && (
+      {!isAlreadyMember && estimatedGas && estimatedGasCostFormatted && !isEstimatingGas ? (
         <Card className="border-l-4 border-l-success">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
@@ -250,7 +247,7 @@ export function JoinRoscaButton({
             )}
           </CardContent>
         </Card>
-      )}
+      ): null}
 
       {/* Status Information */}
       {(step !== 'idle' || !hasEnoughBalance || isWrongNetwork || isEstimatingGas || isCheckingMembership || needsApproval || isAlreadyMember) && (
@@ -413,11 +410,11 @@ export function JoinRoscaButton({
                   <div className="text-xs text-muted-foreground font-mono">
                     {joinHash.slice(0, 10)}...{joinHash.slice(-8)}
                   </div>
-                  {estimatedGas && (
+                  {estimatedGas ? (
                     <div className="text-xs text-muted-foreground">
                       Gas Used: {estimatedGas.toLocaleString()} units
                     </div>
-                  )}
+                  ): null}
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <a 
@@ -483,7 +480,7 @@ export function JoinRoscaButton({
             </div>
 
             {/* Entry Fee Breakdown */}
-            {parseFloat(entryFeeFormatted) > 0 && (
+            {parseFloat(entryFeeFormatted) > 0 ? (
               <div className="pt-3 border-t">
                 <h4 className="font-medium text-sm mb-2">Cost Breakdown</h4>
                 <div className="grid grid-cols-2 gap-4 text-xs">
@@ -510,10 +507,10 @@ export function JoinRoscaButton({
                   </div>
                 </div>
               </div>
-            )}
+            ): null}
 
             {/* Gas Information */}
-            {estimatedGas && estimatedGasCostFormatted && (
+            {estimatedGas && estimatedGasCostFormatted ? (
               <div className="pt-3 border-t">
                 <h4 className="font-medium text-sm mb-2">Gas Estimation</h4>
                 <div className="grid grid-cols-2 gap-4 text-xs">
@@ -537,7 +534,7 @@ export function JoinRoscaButton({
                   </div>
                 </div>
               </div>
-            )}
+            ): null}
 
             <div className="pt-3 border-t">
               <div className="space-y-2 text-xs">
@@ -577,9 +574,9 @@ export function JoinRoscaButton({
               {parseFloat(entryFeeFormatted) > 0 && (
                 <div>Entry fee: {entryFeeFormatted} tokens</div>
               )}
-              {estimatedGasCostFormatted && (
+              {estimatedGasCostFormatted ? (
                 <div>Gas used: {parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH</div>
-              )}
+              ): null}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={() => window.location.reload()}>

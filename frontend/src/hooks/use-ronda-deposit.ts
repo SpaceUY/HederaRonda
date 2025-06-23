@@ -344,7 +344,7 @@ export function useRondaDeposit({
         functionName: 'deposit',
         args: [BigInt(milestoneIndex)],
         account: address,
-        value: isETH ? monthlyDepositAmount : 0n, // Send ETH only if using ETH
+        value: (isETH ? monthlyDepositAmount : 0n) as unknown as undefined, 
       });
 
       console.log('✅ Gas estimation from contract:', {
@@ -523,7 +523,7 @@ export function useRondaDeposit({
         abi: RONDA_ABI,
         functionName: 'deposit',
         args: [BigInt(milestoneIndex)],
-        value: isETH ? monthlyDepositAmount : 0n, // Send ETH only if using ETH
+        value: (isETH ? monthlyDepositAmount : 0n) as unknown as undefined, // Send ETH only if using ETH
         ...gasConfig
       });
 
@@ -586,7 +586,7 @@ export function useRondaDeposit({
         abi: RONDA_ABI,
         functionName: 'deposit',
         args: [BigInt(currentMilestone)],
-        value: isETH ? monthlyDepositAmount : 0n,
+        value: (isETH ? monthlyDepositAmount : 0n) as unknown as undefined,
         ...gasConfig
       });
     }
