@@ -1,15 +1,17 @@
 'use client';
 
-import { useState } from 'react';
 import { Shield, DollarSign } from 'lucide-react';
 import Link from 'next/link';
+import { useState } from 'react';
+
 
 import { Button } from '@/components/ui/button';
+import { VerificationStatus } from '@/components/wallet/verification-status';
+import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
+import { useVerification } from '@/hooks/use-verification';
+
 import { JoinConfirmationModal } from './join-confirmation-modal';
 import { JoinRoscaButton } from './join-rosca-button';
-import { VerificationStatus } from '@/components/wallet/verification-status';
-import { useVerification } from '@/hooks/use-verification';
-import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
 
 interface JoinButtonProps {
   group: any;

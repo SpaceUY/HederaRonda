@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { CheckCircle, Shield, Wallet, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
+import { WorldIdVerifier } from '@/components/auth/world-id-verifier';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { WalletConnector } from '@/components/wallet/wallet-connector';
 import { VerificationStatus } from '@/components/wallet/verification-status';
-import { WorldIdVerifier } from '@/components/auth/world-id-verifier';
+import { WalletConnector } from '@/components/wallet/wallet-connector';
 import { useVerification } from '@/hooks/use-verification';
 
 export default function AuthPage() {

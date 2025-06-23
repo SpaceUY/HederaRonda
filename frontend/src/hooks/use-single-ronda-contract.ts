@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import { useState, useEffect } from 'react';
+
 import { RONDA_ABI, NETWORK_CONFIG, RONDA_STATES } from '@/lib/contracts';
 
 export interface SingleRondaData {
@@ -152,7 +153,7 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       }
 
       // Get current joined participants using joinedParticipants array
-      let joinedParticipants: string[] = [];
+      const joinedParticipants: string[] = [];
       let currentParticipantCount = 0;
 
       try {

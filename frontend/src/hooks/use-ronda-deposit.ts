@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, usePublicClient, useReadContract } from 'wagmi';
 import { parseEther, formatEther, erc20Abi } from 'viem';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, usePublicClient, useReadContract } from 'wagmi';
+
 import { RONDA_ABI } from '@/lib/contracts';
 
 export type DepositStep = 'idle' | 'checking' | 'estimating' | 'approving' | 'depositing' | 'success' | 'error';
@@ -254,9 +255,9 @@ export function useRondaDeposit({
       }
       
       // Return the most descriptive error message available
-      if (errorData) return errorData;
-      if (errorMessage) return errorMessage;
-      if (errorName) return `Contract error: ${errorName}`;
+      if (errorData) {return errorData;}
+      if (errorMessage) {return errorMessage;}
+      if (errorName) {return `Contract error: ${errorName}`;}
       
     } catch (decodeError) {
       console.log('⚠️ Could not decode contract error:', decodeError);
@@ -286,7 +287,7 @@ export function useRondaDeposit({
 
   // Function to determine current milestone
   const determineCurrentMilestone = useCallback(async () => {
-    if (!roscaContractAddress || !milestoneCountData) return;
+    if (!roscaContractAddress || !milestoneCountData) {return;}
 
     try {
       console.log('🔍 Determining current milestone...');

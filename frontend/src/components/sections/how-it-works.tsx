@@ -1,4 +1,4 @@
-import { UserPlus, Calendar, Coins, ArrowRight } from 'lucide-react';
+import { UserPlus, Calendar, Coins } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -84,26 +84,6 @@ export function HowItWorksSection() {
                     </ul>
                   </CardContent>
                 </Card>
-
-                {/* Arrow connectors for desktop - positioned to align with card centers */}
-                {index < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-1/2 -right-6 transform -translate-y-1/2 z-10">
-                    <div className="w-12 h-12 flex items-center justify-center">
-                      <ArrowRight className="h-6 w-6 text-primary/60" />
-                    </div>
-                  </div>
-                )}
-
-                {/* Mobile arrow - positioned below each card except the last */}
-                {index < steps.length - 1 && (
-                  <div className="lg:hidden flex justify-center mt-6 mb-2">
-                    <div className="w-12 h-12 flex items-center justify-center">
-                      <div className="transform rotate-90">
-                        <ArrowRight className="h-6 w-6 text-primary/60" />
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
           </div>

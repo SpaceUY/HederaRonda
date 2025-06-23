@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { 
   Wallet, 
@@ -20,15 +19,16 @@ import {
   Send,
   ArrowRight
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
-import { formatCurrency, formatDate } from '@/lib/utils';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { Group } from '@/local-data';
 
 interface JoinConfirmationModalProps {
@@ -118,7 +118,7 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
   const [ccipTestResult, setCcipTestResult] = useState<CCIPTransferResult | null>(null);
   const { chainName, chainId, address, balance } = useWalletInfo();
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   const totalContribution = group.monthlyContribution * group.maxMembers;
   const estimatedPosition = group.memberCount + 1;
@@ -417,7 +417,7 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
   };
 
   const handleClose = () => {
-    if (status === 'processing' || status === 'testing') return; // Prevent closing during critical operations
+    if (status === 'processing' || status === 'testing') {return;} // Prevent closing during critical operations
     onClose();
     resetModal();
   };
@@ -438,7 +438,7 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
   };
 
   const renderCCIPTestResults = () => {
-    if (!ccipTestResult) return null;
+    if (!ccipTestResult) {return null;}
 
     return (
       <Card className="mb-4">

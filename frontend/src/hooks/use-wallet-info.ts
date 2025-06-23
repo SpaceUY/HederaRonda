@@ -1,8 +1,8 @@
 'use client';
 
-import { useAccount, useChainId, useBalance } from 'wagmi';
 import { useEffect, useState } from 'react';
 import { formatEther } from 'viem';
+import { useAccount, useChainId, useBalance } from 'wagmi';
 
 interface WalletInfo {
   address: string | undefined;

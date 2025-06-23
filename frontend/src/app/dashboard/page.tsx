@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 
-import { Header } from '@/components/layout/header';
 import { ContractGroupsGrid } from '@/components/dashboard/contract-groups-grid';
-import { GroupsFilters } from '@/components/dashboard/groups-filters';
 import { EmptyState } from '@/components/dashboard/empty-state';
+import { GroupsFilters } from '@/components/dashboard/groups-filters';
+import { Header } from '@/components/layout/header';
 import { useRondaContracts } from '@/hooks/use-ronda-contracts';
 
 export default function DashboardPage() {
@@ -71,7 +71,7 @@ export default function DashboardPage() {
               />
             ) : !error && !isLoading && rondas.length > 0 && hasActiveFilters ? (
               <EmptyState 
-                hasActiveFilters={hasActiveFilters}
+                hasActiveFilters={!!hasActiveFilters}
                 onClearFilters={() => {
                   setSearchQuery('');
                   setFilters({

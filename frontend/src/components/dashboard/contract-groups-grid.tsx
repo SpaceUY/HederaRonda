@@ -3,12 +3,12 @@
 import { Calendar, Users, DollarSign, Clock, Eye, RefreshCw, AlertTriangle, Network, TrendingUp, Award } from 'lucide-react';
 import Link from 'next/link';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { formatCurrency, formatDate } from '@/lib/utils';
 import { RondaContractData } from '@/hooks/use-ronda-contracts';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface ContractGroupsGridProps {
   rondas: RondaContractData[];
@@ -67,12 +67,6 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
       default:
         return '⚪';
     }
-  };
-
-  const calculateEarningPotential = (ronda: RondaContractData) => {
-    // Calculate potential bonus for later positions
-    const maxBonus = Math.min(ronda.maxParticipants * 2, 15); // Cap at 15%
-    return maxBonus;
   };
 
   const formatMonthlyAmount = (ronda: RondaContractData) => {
@@ -206,7 +200,6 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
       {/* RONDA Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {rondas.map((ronda, index) => {
-          const earningPotential = calculateEarningPotential(ronda);
           const availableSpots = ronda.maxParticipants - ronda.participantCount;
           const completionPercentage = (ronda.participantCount / ronda.maxParticipants) * 100;
           
@@ -276,7 +269,7 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                   </div>
                 </div>
 
-                {/* Duration and Earning Potential */}
+                {/* Duration and Available Spots */}
                 <div className="grid grid-cols-2 gap-4 flex-shrink-0">
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -290,26 +283,26 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                   
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                      <TrendingUp className="h-4 w-4" />
-                      <span>Earn up to</span>
+                      <Users className="h-4 w-4" />
+                      <span>Available</span>
                     </div>
-                    <div className="font-semibold text-success">
-                      +{earningPotential}% bonus
+                    <div className="font-semibold text-warning">
+                      {availableSpots} spots
                     </div>
                   </div>
                 </div>
 
-                {/* Value Proposition */}
+                {/* Basic Information */}
                 <div className="p-4 bg-gradient-to-r from-primary/5 to-success/5 rounded-lg border border-primary/20 flex-shrink-0">
                   <div className="flex items-center space-x-2 mb-2">
                     <Award className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">Your Benefits</span>
+                    <span className="font-medium text-sm">RONDA Details</span>
                   </div>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Payout:</span>
+                      <span className="text-muted-foreground">Monthly Deposit:</span>
                       <span className="font-semibold">
-                        {(ronda.monthlyDepositFormatted * ronda.maxParticipants).toFixed(3)} ETH
+                        {formatMonthlyAmount(ronda)}
                       </span>
                     </div>
                     {availableSpots > 0 && (

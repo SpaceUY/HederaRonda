@@ -3,10 +3,10 @@
 import { Wallet, Network, Coins, AlertTriangle, CheckCircle, Copy } from 'lucide-react';
 import { useState } from 'react';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
 import { formatCurrency } from '@/lib/utils';
 

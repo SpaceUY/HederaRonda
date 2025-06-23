@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
 import { CheckCircle, AlertCircle, Shield, Wallet, Info } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useVerification } from '@/hooks/use-verification';
 
 interface VerificationStatusProps {

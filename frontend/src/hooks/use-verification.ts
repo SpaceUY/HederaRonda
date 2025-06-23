@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
 import { ISuccessResult } from '@worldcoin/idkit';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 
 interface VerificationState {
@@ -20,11 +20,12 @@ interface VerificationState {
 export function useVerification() {
   const { address, isConnected } = useAccount();
   
+  // Initialize with consistent server/client state
   const [verificationState, setVerificationState] = useState<VerificationState>({
     worldIdProof: null,
-    walletAddress: address || null,
+    walletAddress: null, // Always start with null to prevent hydration mismatch
     isWorldIdVerified: false,
-    isWalletConnected: isConnected,
+    isWalletConnected: false, // Always start with false to prevent hydration mismatch
     isReadyToJoin: false,
     sessionData: null,
   });
@@ -131,7 +132,7 @@ export function useVerification() {
     }));
   }, []);
 
-  // Update wallet state when wagmi state changes
+  // Update wallet state when wagmi state changes (only on client)
   React.useEffect(() => {
     if (isConnected && address) {
       handleWalletConnect(address);

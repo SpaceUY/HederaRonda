@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount, useDisconnect } from 'wagmi';
 import { Wallet, LogOut, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useAccount, useDisconnect } from 'wagmi';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface WalletConnectorProps {
   onWalletConnect?: (address: string) => void;

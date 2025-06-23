@@ -1,6 +1,7 @@
 'use client';
 
 import { notFound } from 'next/navigation';
+
 import { ContributionFlow } from '@/components/contribution/contribution-flow';
 import { useSingleRondaContract } from '@/hooks/use-single-ronda-contract';
 

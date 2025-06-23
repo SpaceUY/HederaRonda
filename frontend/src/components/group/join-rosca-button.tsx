@@ -1,6 +1,5 @@
 'use client';
 
-import React, { useState } from 'react';
 import { 
   Wallet, 
   Loader2, 
@@ -17,14 +16,16 @@ import {
   ArrowRight,
   UserCheck
 } from 'lucide-react';
+import React, { useState } from 'react';
+import { formatEther } from 'viem';
+import { useAccount, useChainId } from 'wagmi';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRoscaJoin, JoinStep } from '@/hooks/use-rosca-join';
-import { useAccount, useChainId } from 'wagmi';
-import { formatEther } from 'viem';
+
 
 interface JoinRoscaButtonProps {
   contributionAmount: string; // Amount in token units (e.g., "100" for 100 USDC)
@@ -81,10 +82,10 @@ export function JoinRoscaButton({
   }, [step, onSuccess]);
 
   const getButtonText = (): string => {
-    if (!isConnected) return 'Connect Wallet';
-    if (isWrongNetwork) return 'Switch to Sepolia';
-    if (isAlreadyMember) return 'Already Joined RONDA';
-    if (!hasEnoughBalance) return `Insufficient Balance`;
+    if (!isConnected) {return 'Connect Wallet';}
+    if (isWrongNetwork) {return 'Switch to Sepolia';}
+    if (isAlreadyMember) {return 'Already Joined RONDA';}
+    if (!hasEnoughBalance) {return `Insufficient Balance`;}
     
     switch (step) {
       case 'checking':
@@ -105,13 +106,13 @@ export function JoinRoscaButton({
   };
 
   const getButtonIcon = () => {
-    if (isLoading || isCheckingMembership) return <Loader2 className="h-4 w-4 animate-spin" />;
-    if (step === 'success') return <CheckCircle className="h-4 w-4" />;
-    if (step === 'error') return <RefreshCw className="h-4 w-4" />;
-    if (step === 'checking') return <UserCheck className="h-4 w-4" />;
-    if (step === 'approving') return <Key className="h-4 w-4" />;
-    if (isAlreadyMember) return <CheckCircle className="h-4 w-4" />;
-    if (!isConnected || isWrongNetwork) return <Wallet className="h-4 w-4" />;
+    if (isLoading || isCheckingMembership) {return <Loader2 className="h-4 w-4 animate-spin" />;}
+    if (step === 'success') {return <CheckCircle className="h-4 w-4" />;}
+    if (step === 'error') {return <RefreshCw className="h-4 w-4" />;}
+    if (step === 'checking') {return <UserCheck className="h-4 w-4" />;}
+    if (step === 'approving') {return <Key className="h-4 w-4" />;}
+    if (isAlreadyMember) {return <CheckCircle className="h-4 w-4" />;}
+    if (!isConnected || isWrongNetwork) {return <Wallet className="h-4 w-4" />;}
     return needsApproval ? <Key className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />;
   };
 

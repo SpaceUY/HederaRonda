@@ -1,17 +1,20 @@
 'use client';
 
-import { useState } from 'react';
 import { ArrowLeft, DollarSign, Calendar, AlertTriangle, CheckCircle, Loader2, ChevronRight, Home, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
+
+import { Header } from '@/components/layout/header';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Header } from '@/components/layout/header';
-import { DepositButton } from './deposit-button';
-import { formatCurrency, formatDate } from '@/lib/utils';
 import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
+import { formatCurrency, formatDate } from '@/lib/utils';
+
+import { DepositButton } from './deposit-button';
 
 interface ContributionFlowProps {
   group: any; // RONDA contract data
@@ -19,10 +22,18 @@ interface ContributionFlowProps {
 
 export function ContributionFlow({ group }: ContributionFlowProps) {
   const [selectedMilestone, setSelectedMilestone] = useState(0);
+  const router = useRouter();
   
   const { isMember, isCheckingMembership } = useRondaDeposit({
     roscaContractAddress: group.address
   });
+
+  const handleDepositSuccess = () => {
+    // Redirect to the RONDA details page after successful deposit
+    setTimeout(() => {
+      router.push(`/group/${group.address}`);
+    }, 2000); // Wait 2 seconds to show success message
+  };
 
   const renderPageHeader = () => (
     <div className="pt-16 bg-muted/30 border-b border-border">
@@ -252,12 +263,7 @@ export function ContributionFlow({ group }: ContributionFlowProps) {
               <DepositButton
                 roscaContractAddress={group.address}
                 milestoneIndex={selectedMilestone}
-                onSuccess={() => {
-                  // Refresh the page or update state after successful deposit
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 3000);
-                }}
+                onSuccess={handleDepositSuccess}
               />
             </CardContent>
           </Card>

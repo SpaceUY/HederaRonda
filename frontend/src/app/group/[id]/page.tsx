@@ -1,17 +1,17 @@
 'use client';
 
-import { notFound } from 'next/navigation';
 import { Users, Calendar, DollarSign, Clock, Shield, CheckCircle, AlertTriangle, RefreshCw, Network, ExternalLink, Zap } from 'lucide-react';
+import { notFound } from 'next/navigation';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { formatCurrency, formatDate } from '@/lib/utils';
 import { JoinButton } from '@/components/group/join-button';
 import { Header } from '@/components/layout/header';
-import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSingleRondaContract } from '@/hooks/use-single-ronda-contract';
+import { useVerification } from '@/hooks/use-verification';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface GroupDetailPageProps {
   params: {
@@ -21,6 +21,7 @@ interface GroupDetailPageProps {
 
 export default function GroupDetailPage({ params }: GroupDetailPageProps) {
   const { ronda, isLoading, error, refetch } = useSingleRondaContract(params.id);
+  const { verificationState } = useVerification();
 
   if (error) {
     return (
@@ -134,18 +135,6 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
     }
     return `${amount.toFixed(3)} ${token} monthly`;
   };
-
-  const getEstimatedPosition = () => {
-    return ronda.participantCount + 1;
-  };
-
-  const getEstimatedPayoutMonth = () => {
-    const position = getEstimatedPosition();
-    return Math.ceil(position / 2); // Mock calculation
-  };
-
-  const estimatedPosition = getEstimatedPosition();
-  const estimatedPayoutMonth = getEstimatedPayoutMonth();
 
   return (
     <div className="min-h-screen bg-background">
@@ -458,7 +447,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
               </Card>
             )}
 
-            {/* Current Participants */}
+            {/* Current Participants - Moved from sidebar */}
             {ronda.participants.length > 0 && (
               <Card>
                 <CardHeader>
@@ -533,62 +522,19 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                   isDisabled={ronda.availableSpots === 0 || ronda.state !== 'Open'}
                 />
 
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="text-sm space-y-1">
-                    <div className="font-medium text-info">Next Steps:</div>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <div>1. Verify identity with World ID</div>
-                      <div>2. Connect your crypto wallet</div>
-                      <div>3. Approve and join the RONDA</div>
+                {/* Only show Next Steps if user is not verified */}
+                {!verificationState.isReadyToJoin && (
+                  <div className="p-3 bg-info/5 rounded-lg border border-info/20">
+                    <div className="text-sm space-y-1">
+                      <div className="font-medium text-info">Next Steps:</div>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div>1. Verify identity with World ID</div>
+                        <div>2. Connect your crypto wallet</div>
+                        <div>3. Approve and join the RONDA</div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Wallet & Network Info */}
-            <WalletChainInfo showBalance={true} showCopyAddress={false} />
-
-            {/* Financial Summary */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Financial Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Monthly Contribution</span>
-                  <span className="font-medium">{ronda.monthlyDepositFormatted.toFixed(4)} ETH</span>
-                </div>
-                {ronda.entryFeeFormatted > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Entry Fee</span>
-                    <span className="font-medium">{ronda.entryFeeFormatted.toFixed(4)} ETH</span>
-                  </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Your Payout</span>
-                  <span className="font-medium text-success">{ronda.totalContribution.toFixed(4)} ETH</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Total Commitment</span>
-                  <span className="font-medium">{(ronda.monthlyDepositFormatted * ronda.duration).toFixed(4)} ETH</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Estimated Payout Month</span>
-                  <span className="font-medium">Month {estimatedPayoutMonth}</span>
-                </div>
-                
-                <div className="pt-4 border-t">
-                  <div className="flex justify-between text-lg font-semibold">
-                    <span>Net Benefit</span>
-                    <span className="text-success">
-                      +{(ronda.totalContribution - (ronda.monthlyDepositFormatted * ronda.duration)).toFixed(4)} ETH
-                    </span>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Potential savings through group participation
-                  </div>
-                </div>
               </CardContent>
             </Card>
 

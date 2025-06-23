@@ -13,7 +13,7 @@ const nextConfig = {
     typedRoutes: true,
   },
   reactStrictMode: true,
-  swcMinify: true,
+  swcMinify: false,
   // Fix for Coinbase Wallet CORS policy
   async headers() {
     return [

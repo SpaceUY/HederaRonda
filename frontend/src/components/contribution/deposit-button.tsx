@@ -1,6 +1,5 @@
 'use client';
 
-import React, { useState } from 'react';
 import { 
   DollarSign, 
   Loader2, 
@@ -15,13 +14,15 @@ import {
   UserCheck,
   Calendar
 } from 'lucide-react';
+import React, { useState } from 'react';
+import { useAccount, useChainId } from 'wagmi';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useRondaDeposit, DepositStep } from '@/hooks/use-ronda-deposit';
-import { useAccount, useChainId } from 'wagmi';
+
 
 interface DepositButtonProps {
   roscaContractAddress: string;
@@ -82,12 +83,12 @@ export function DepositButton({
   }, [step, onSuccess]);
 
   const getButtonText = (): string => {
-    if (!isConnected) return 'Connect Wallet';
-    if (isWrongNetwork) return 'Switch to Sepolia';
-    if (!isMember) return 'Not a Member';
-    if (!isRondaRunning) return 'RONDA Not Running';
-    if (hasAlreadyDeposited) return 'Already Deposited';
-    if (!hasEnoughBalance) return `Insufficient Balance`;
+    if (!isConnected) {return 'Connect Wallet';}
+    if (isWrongNetwork) {return 'Switch to Sepolia';}
+    if (!isMember) {return 'Not a Member';}
+    if (!isRondaRunning) {return 'RONDA Not Running';}
+    if (hasAlreadyDeposited) {return 'Already Deposited';}
+    if (!hasEnoughBalance) {return `Insufficient Balance`;}
     
     switch (step) {
       case 'checking':
@@ -108,14 +109,14 @@ export function DepositButton({
   };
 
   const getButtonIcon = () => {
-    if (isLoading || isCheckingMembership) return <Loader2 className="h-4 w-4 animate-spin" />;
-    if (step === 'success') return <CheckCircle className="h-4 w-4" />;
-    if (step === 'error') return <RefreshCw className="h-4 w-4" />;
-    if (step === 'checking') return <UserCheck className="h-4 w-4" />;
-    if (step === 'approving') return <Key className="h-4 w-4" />;
-    if (!isMember) return <AlertTriangle className="h-4 w-4" />;
-    if (!isRondaRunning) return <Clock className="h-4 w-4" />;
-    if (!isConnected || isWrongNetwork) return <AlertTriangle className="h-4 w-4" />;
+    if (isLoading || isCheckingMembership) {return <Loader2 className="h-4 w-4 animate-spin" />;}
+    if (step === 'success') {return <CheckCircle className="h-4 w-4" />;}
+    if (step === 'error') {return <RefreshCw className="h-4 w-4" />;}
+    if (step === 'checking') {return <UserCheck className="h-4 w-4" />;}
+    if (step === 'approving') {return <Key className="h-4 w-4" />;}
+    if (!isMember) {return <AlertTriangle className="h-4 w-4" />;}
+    if (!isRondaRunning) {return <Clock className="h-4 w-4" />;}
+    if (!isConnected || isWrongNetwork) {return <AlertTriangle className="h-4 w-4" />;}
     return needsApproval ? <Key className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />;
   };
 

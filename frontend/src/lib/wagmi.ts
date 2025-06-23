@@ -1,6 +1,6 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { arbitrumSepolia, sepolia } from 'wagmi/chains';
 import { http } from 'wagmi';
+import { arbitrumSepolia, sepolia } from 'wagmi/chains';
 
 const config = getDefaultConfig({
   appName: 'RONDA Web3',
@@ -10,7 +10,7 @@ const config = getDefaultConfig({
     [arbitrumSepolia.id]: http(),
     [sepolia.id]: http(),
   },
-  ssr: true, // Enable server-side rendering support
+  ssr: true, // Disable server-side rendering to match Web3Provider dynamic import
 });
 
 export { config };

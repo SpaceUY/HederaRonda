@@ -1,6 +1,6 @@
 # RONDA Web3 - Decentralized Rotating Savings Platform
 
-A modern, decentralized platform for rotating savings groups (ROSCAs) built with Next.js 14, TypeScript, and Web3 technologies.
+A moderns, decentralized platform for rotating savings groups (ROSCAs) built with Next.js 14, TypeScript, and Web3 technologies.
 
 ## 🏗️ Project Architecture
 
@@ -41,23 +41,27 @@ src/
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd ronda-web3
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Set up environment variables:
+
 ```bash
 cp .env.local.example .env.local
 # Edit .env.local with your configuration
 ```
 
 4. Start the development server:
+
 ```bash
 npm run dev
 ```
