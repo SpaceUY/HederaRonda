@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
 import { WorldIdVerifier } from '@/components/auth/world-id-verifier';
+import { PenaltyChecker } from '@/components/penalty/penalty-checker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { VerificationStatus } from '@/components/wallet/verification-status';
@@ -12,7 +13,7 @@ import { WalletConnector } from '@/components/wallet/wallet-connector';
 import { useVerification } from '@/hooks/use-verification';
 
 export default function AuthPage() {
-  const [currentStep, setCurrentStep] = useState<'intro' | 'worldid' | 'wallet' | 'complete'>('intro');
+  const [currentStep, setCurrentStep] = useState<'intro' | 'worldid' | 'wallet' | 'penalty' | 'complete'>('intro');
   const {
     verificationState,
     handleWorldIdSuccess,
@@ -22,7 +23,7 @@ export default function AuthPage() {
 
   useEffect(() => {
     if (verificationState.isWorldIdVerified && verificationState.isWalletConnected) {
-      setCurrentStep('complete');
+      setCurrentStep('penalty');
     } else if (verificationState.isWorldIdVerified && !verificationState.isWalletConnected) {
       setCurrentStep('wallet');
     }
@@ -33,11 +34,11 @@ export default function AuthPage() {
       <div className="text-center space-y-4">
         <h1 className="text-3xl font-bold">Get Verified to Join RONDAs</h1>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          To ensure security and prevent fraud, we require two types of verification before you can join any RONDA.
+          To ensure security and prevent fraud, we require verification before you can join any RONDA.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
           <CardHeader>
             <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
@@ -74,6 +75,26 @@ export default function AuthPage() {
               <li>• Direct payout delivery</li>
               <li>• Multiple wallet support</li>
               <li>• Switch wallets anytime</li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="w-12 h-12 bg-warning/10 rounded-lg flex items-center justify-center mb-4">
+              <Shield className="h-6 w-6 text-warning" />
+            </div>
+            <CardTitle>Penalty Check</CardTitle>
+            <CardDescription>
+              Verify your wallet is clear of penalty tokens before joining rounds.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>• Automatic penalty detection</li>
+              <li>• Contract violation tracking</li>
+              <li>• Participation eligibility</li>
+              <li>• Real-time verification</li>
             </ul>
           </CardContent>
         </Card>
@@ -130,6 +151,35 @@ export default function AuthPage() {
     </div>
   );
 
+  const renderPenaltyStep = () => (
+    <div className="space-y-8">
+      <div className="text-center space-y-4">
+        <div className="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mx-auto">
+          <Shield className="h-8 w-8 text-warning" />
+        </div>
+        <h2 className="text-2xl font-bold">Penalty Token Check</h2>
+        <p className="text-muted-foreground max-w-md mx-auto">
+          Verifying your wallet is clear of penalty tokens and eligible to participate.
+        </p>
+      </div>
+
+      <div className="max-w-2xl mx-auto">
+        <PenaltyChecker 
+          walletAddress={verificationState.walletAddress || undefined}
+          autoCheck={true}
+          showManualCheck={false}
+        />
+      </div>
+
+      <div className="text-center">
+        <Button size="lg" onClick={() => setCurrentStep('complete')}>
+          Continue to Dashboard
+          <ArrowRight className="h-4 w-4 ml-2" />
+        </Button>
+      </div>
+    </div>
+  );
+
   const renderCompleteStep = () => (
     <div className="space-y-8">
       <div className="text-center space-y-4">
@@ -171,6 +221,8 @@ export default function AuthPage() {
         return renderWorldIdStep();
       case 'wallet':
         return renderWalletStep();
+      case 'penalty':
+        return renderPenaltyStep();
       case 'complete':
         return renderCompleteStep();
       default:
@@ -213,6 +265,22 @@ export default function AuthPage() {
                   {verificationState.isWalletConnected ? <CheckCircle className="h-4 w-4" /> : '2'}
                 </div>
                 <span className="text-sm font-medium">Wallet</span>
+              </div>
+
+              <div className="w-8 h-px bg-border" />
+              
+              <div className={`flex items-center space-x-2 ${
+                currentStep === 'complete' ? 'text-success' : 
+                currentStep === 'penalty' ? 'text-primary' : 'text-muted-foreground'
+              }`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
+                  currentStep === 'complete' ? 'bg-success border-success text-success-foreground' :
+                  currentStep === 'penalty' ? 'bg-primary border-primary text-primary-foreground' :
+                  'border-muted-foreground'
+                }`}>
+                  {currentStep === 'complete' ? <CheckCircle className="h-4 w-4" /> : '3'}
+                </div>
+                <span className="text-sm font-medium">Penalty Check</span>
               </div>
             </div>
           </div>

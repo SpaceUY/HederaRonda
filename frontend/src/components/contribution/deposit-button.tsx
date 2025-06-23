@@ -1,18 +1,18 @@
 'use client';
 
-import { 
-  DollarSign, 
-  Loader2, 
-  CheckCircle, 
-  AlertTriangle, 
-  ExternalLink, 
+import {
+  DollarSign,
+  Loader2,
+  CheckCircle,
+  AlertTriangle,
+  ExternalLink,
   RefreshCw,
   Clock,
   Zap,
   Key,
   ArrowRight,
   UserCheck,
-  Calendar
+  Calendar,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
@@ -20,7 +20,13 @@ import { useAccount, useChainId } from 'wagmi';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
 interface DepositButtonProps {
   roscaContractAddress: string;
@@ -33,12 +39,12 @@ interface DepositButtonProps {
 const SEPOLIA_CHAIN_ID = 11155111;
 const BLOCK_EXPLORER_URL = 'https://sepolia.etherscan.io';
 
-export function DepositButton({ 
-  roscaContractAddress, 
+export function DepositButton({
+  roscaContractAddress,
   milestoneIndex = 0,
   onSuccess,
   disabled = false,
-  className 
+  className,
 }: DepositButtonProps) {
   const { isConnected } = useAccount();
   const chainId = useChainId();
@@ -65,9 +71,9 @@ export function DepositButton({
     milestoneInfo,
     rondaState,
     isRondaRunning,
-    canMakeDeposits
+    canMakeDeposits,
   } = useRondaDeposit({
-    roscaContractAddress
+    roscaContractAddress,
   });
 
   const isWrongNetwork = chainId !== SEPOLIA_CHAIN_ID;
@@ -80,13 +86,25 @@ export function DepositButton({
   }, [step, onSuccess]);
 
   const getButtonText = (): string => {
-    if (!isConnected) {return 'Connect Wallet';}
-    if (isWrongNetwork) {return 'Switch to Sepolia';}
-    if (!isMember) {return 'Not a Member';}
-    if (!isRondaRunning) {return 'RONDA Not Running';}
-    if (hasAlreadyDeposited) {return 'Already Deposited';}
-    if (!hasEnoughBalance) {return `Insufficient Balance`;}
-    
+    if (!isConnected) {
+      return 'Connect Wallet';
+    }
+    if (isWrongNetwork) {
+      return 'Switch to Sepolia';
+    }
+    if (!isMember) {
+      return 'Not a Member';
+    }
+    if (!isRondaRunning) {
+      return 'RONDA Not Running';
+    }
+    if (hasAlreadyDeposited) {
+      return 'Already Deposited';
+    }
+    if (!hasEnoughBalance) {
+      return `Insufficient Balance`;
+    }
+
     switch (step) {
       case 'checking':
         return 'Verifying Membership...';
@@ -106,15 +124,35 @@ export function DepositButton({
   };
 
   const getButtonIcon = () => {
-    if (isLoading || isCheckingMembership) {return <Loader2 className="h-4 w-4 animate-spin" />;}
-    if (step === 'success') {return <CheckCircle className="h-4 w-4" />;}
-    if (step === 'error') {return <RefreshCw className="h-4 w-4" />;}
-    if (step === 'checking') {return <UserCheck className="h-4 w-4" />;}
-    if (step === 'approving') {return <Key className="h-4 w-4" />;}
-    if (!isMember) {return <AlertTriangle className="h-4 w-4" />;}
-    if (!isRondaRunning) {return <Clock className="h-4 w-4" />;}
-    if (!isConnected || isWrongNetwork) {return <AlertTriangle className="h-4 w-4" />;}
-    return needsApproval ? <Key className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />;
+    if (isLoading || isCheckingMembership) {
+      return <Loader2 className="h-4 w-4 animate-spin" />;
+    }
+    if (step === 'success') {
+      return <CheckCircle className="h-4 w-4" />;
+    }
+    if (step === 'error') {
+      return <RefreshCw className="h-4 w-4" />;
+    }
+    if (step === 'checking') {
+      return <UserCheck className="h-4 w-4" />;
+    }
+    if (step === 'approving') {
+      return <Key className="h-4 w-4" />;
+    }
+    if (!isMember) {
+      return <AlertTriangle className="h-4 w-4" />;
+    }
+    if (!isRondaRunning) {
+      return <Clock className="h-4 w-4" />;
+    }
+    if (!isConnected || isWrongNetwork) {
+      return <AlertTriangle className="h-4 w-4" />;
+    }
+    return needsApproval ? (
+      <Key className="h-4 w-4" />
+    ) : (
+      <DollarSign className="h-4 w-4" />
+    );
   };
 
   const getStepDescription = (): string => {
@@ -136,14 +174,23 @@ export function DepositButton({
           return 'You must be a member of this RONDA to make deposits';
         }
         if (!isRondaRunning) {
-          const stateNames = ['Open', 'Running', 'Finalized', 'Aborted', 'Randomizing'];
-          const currentStateName = rondaState !== null ? stateNames[rondaState] || 'Unknown' : 'Unknown';
+          const stateNames = [
+            'Open',
+            'Running',
+            'Finalized',
+            'Aborted',
+            'Randomizing',
+          ];
+          const currentStateName =
+            rondaState !== null
+              ? stateNames[rondaState] || 'Unknown'
+              : 'Unknown';
           return `RONDA is ${currentStateName} - deposits only allowed when Running`;
         }
         if (hasAlreadyDeposited) {
           return 'You have already made your deposit for this milestone';
         }
-        return needsApproval 
+        return needsApproval
           ? `Ready to approve tokens and make deposit of ${monthlyDepositFormatted} tokens`
           : `Ready to make monthly deposit of ${monthlyDepositFormatted} tokens`;
     }
@@ -157,12 +204,13 @@ export function DepositButton({
     }
   };
 
-  const isButtonDisabled = disabled || 
-    isLoading || 
+  const isButtonDisabled =
+    disabled ||
+    isLoading ||
     isCheckingMembership ||
-    step === 'success' || 
-    !isConnected || 
-    isWrongNetwork || 
+    step === 'success' ||
+    !isConnected ||
+    isWrongNetwork ||
     !hasEnoughBalance ||
     !canMakeDeposits ||
     hasAlreadyDeposited;
@@ -174,11 +222,15 @@ export function DepositButton({
         disabled={isButtonDisabled}
         className={`w-full text-base font-semibold py-6 ${className}`}
         variant={
-          step === 'error' ? 'outline' : 
-          !isMember ? 'secondary' :
-          !isRondaRunning ? 'secondary' :
-          hasAlreadyDeposited ? 'secondary' :
-          'default'
+          step === 'error'
+            ? 'outline'
+            : !isMember
+            ? 'secondary'
+            : !isRondaRunning
+            ? 'secondary'
+            : hasAlreadyDeposited
+            ? 'secondary'
+            : 'default'
         }
       >
         {getButtonIcon()}
@@ -189,7 +241,8 @@ export function DepositButton({
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            You are not a member of this RONDA. Only members can make monthly deposits.
+            You are not a member of this RONDA. Only members can make monthly
+            deposits.
           </AlertDescription>
         </Alert>
       )}
@@ -198,9 +251,13 @@ export function DepositButton({
         <Alert variant="destructive">
           <Clock className="h-4 w-4" />
           <AlertDescription>
-            This RONDA is not currently accepting deposits. Current state: {
-              rondaState !== null ? ['Open', 'Running', 'Finalized', 'Aborted', 'Randomizing'][rondaState] || 'Unknown' : 'Unknown'
-            }. Deposits are only allowed when the RONDA is in "Running" state.
+            This RONDA is not currently accepting deposits. Current state:{' '}
+            {rondaState !== null
+              ? ['Open', 'Running', 'Finalized', 'Aborted', 'Randomizing'][
+                  rondaState
+                ] || 'Unknown'
+              : 'Unknown'}
+            . Deposits are only allowed when the RONDA is in "Running" state.
           </AlertDescription>
         </Alert>
       )}
@@ -209,7 +266,8 @@ export function DepositButton({
         <Alert>
           <CheckCircle className="h-4 w-4" />
           <AlertDescription>
-            You have already made your deposit for this milestone. Check back next month for the next deposit.
+            You have already made your deposit for this milestone. Check back
+            next month for the next deposit.
           </AlertDescription>
         </Alert>
       )}
@@ -220,93 +278,135 @@ export function DepositButton({
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-info" />
-                <span className="text-sm font-medium text-info">Milestone {currentMilestone || milestoneIndex}</span>
+                <span className="text-sm font-medium text-info">
+                  Milestone {currentMilestone || milestoneIndex}
+                </span>
               </div>
-              <Badge variant="outline" className="bg-info/10 text-info border-info/20">
+              <Badge
+                variant="outline"
+                className="bg-info/10 text-info border-info/20"
+              >
                 {milestoneInfo.isComplete ? 'Complete' : 'Active'}
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Required Deposit:</span>
-                <div className="font-medium">{monthlyDepositFormatted} tokens</div>
+                <div className="font-medium">
+                  {monthlyDepositFormatted} tokens
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Total Collected:</span>
                 <div className="font-medium">
-                  {Number(milestoneInfo.totalDeposits) / 1e6} / {Number(milestoneInfo.requiredDeposits) / 1e6} tokens
+                  {Number(milestoneInfo.totalDeposits) / 1e6} /{' '}
+                  {Number(milestoneInfo.requiredDeposits) / 1e6} tokens
                 </div>
               </div>
             </div>
             <div className="mt-2">
               <div className="w-full bg-muted rounded-full h-2">
-                <div 
+                <div
                   className="bg-info rounded-full h-2 transition-all duration-300"
-                  style={{ 
-                    width: `${Math.min(100, (Number(milestoneInfo.totalDeposits) / Number(milestoneInfo.requiredDeposits)) * 100)}%` 
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      (Number(milestoneInfo.totalDeposits) /
+                        Number(milestoneInfo.requiredDeposits)) *
+                        100
+                    )}%`,
                   }}
                 />
               </div>
               <div className="text-xs text-muted-foreground mt-1">
-                {Math.round((Number(milestoneInfo.totalDeposits) / Number(milestoneInfo.requiredDeposits)) * 100)}% collected
+                {Math.round(
+                  (Number(milestoneInfo.totalDeposits) /
+                    Number(milestoneInfo.requiredDeposits)) *
+                    100
+                )}
+                % collected
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {canMakeDeposits && !hasAlreadyDeposited && estimatedGas && estimatedGasCostFormatted && !isEstimatingGas ? (
+      {canMakeDeposits &&
+      !hasAlreadyDeposited &&
+      estimatedGas &&
+      estimatedGasCostFormatted &&
+      !isEstimatingGas ? (
         <Card className="border-l-4 border-l-success">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center space-x-2">
                 <Zap className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium text-success">Gas Estimated</span>
+                <span className="text-sm font-medium text-success">
+                  Gas Estimated
+                </span>
               </div>
-              <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+              <Badge
+                variant="outline"
+                className="bg-success/10 text-success border-success/20"
+              >
                 {estimatedGas.toLocaleString()} gas
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Deposit Amount:</span>
-                <div className="font-medium">{monthlyDepositFormatted} tokens</div>
+                <div className="font-medium">
+                  {monthlyDepositFormatted} tokens
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Est. Gas Cost:</span>
-                <div className="font-medium">{parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH</div>
+                <div className="font-medium">
+                  {parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH
+                </div>
               </div>
             </div>
             {needsApproval && (
               <div className="mt-2 pt-2 border-t">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Steps Required:</span>
-                  <span className="font-semibold">
-                    1. Approve → 2. Deposit
-                  </span>
+                  <span className="font-semibold">1. Approve → 2. Deposit</span>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
-      ): null}
+      ) : null}
 
       {/* Status Information */}
-      {(step !== 'idle' || !hasEnoughBalance || isWrongNetwork || isEstimatingGas || isCheckingMembership || needsApproval || !isMember || !isRondaRunning || hasAlreadyDeposited) && (
+      {(step !== 'idle' ||
+        !hasEnoughBalance ||
+        isWrongNetwork ||
+        isEstimatingGas ||
+        isCheckingMembership ||
+        needsApproval ||
+        !isMember ||
+        !isRondaRunning ||
+        hasAlreadyDeposited) && (
         <Card className="border-l-4 border-l-primary">
           <CardContent className="p-4">
             <div className="space-y-3">
               {/* Step Status */}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Status:</span>
-                <Badge 
+                <Badge
                   variant={
-                    step === 'success' ? 'default' : 
-                    step === 'error' ? 'destructive' : 
-                    !isMember ? 'secondary' :
-                    !isRondaRunning ? 'secondary' :
-                    hasAlreadyDeposited ? 'secondary' :
-                    'secondary'
+                    step === 'success'
+                      ? 'default'
+                      : step === 'error'
+                      ? 'destructive'
+                      : !isMember
+                      ? 'secondary'
+                      : !isRondaRunning
+                      ? 'secondary'
+                      : hasAlreadyDeposited
+                      ? 'secondary'
+                      : 'secondary'
                   }
                   className="gap-1"
                 >
@@ -314,16 +414,23 @@ export function DepositButton({
                   {step === 'error' && <AlertTriangle className="h-3 w-3" />}
                   {step === 'checking' && <UserCheck className="h-3 w-3" />}
                   {step === 'approving' && <Key className="h-3 w-3" />}
-                  {(isLoading || isEstimatingGas || isCheckingMembership) && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {(isLoading || isEstimatingGas || isCheckingMembership) && (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  )}
                   {!isMember && <AlertTriangle className="h-3 w-3" />}
                   {!isRondaRunning && <Clock className="h-3 w-3" />}
                   {hasAlreadyDeposited && <CheckCircle className="h-3 w-3" />}
-                  {!isMember ? 'Not Member' :
-                   !isRondaRunning ? 'Not Running' :
-                   hasAlreadyDeposited ? 'Deposited' :
-                   isEstimatingGas ? 'Estimating' : 
-                   isCheckingMembership ? 'Checking' :
-                   step.charAt(0).toUpperCase() + step.slice(1)}
+                  {!isMember
+                    ? 'Not Member'
+                    : !isRondaRunning
+                    ? 'Not Running'
+                    : hasAlreadyDeposited
+                    ? 'Deposited'
+                    : isEstimatingGas
+                    ? 'Estimating'
+                    : isCheckingMembership
+                    ? 'Checking'
+                    : step.charAt(0).toUpperCase() + step.slice(1)}
                 </Badge>
               </div>
 
@@ -337,56 +444,75 @@ export function DepositButton({
                 <div className="p-3 bg-info/5 rounded-lg border border-info/20">
                   <div className="flex items-center space-x-2 mb-2">
                     <UserCheck className="h-4 w-4 text-info animate-pulse" />
-                    <span className="text-sm font-medium text-info">Membership & Deposit Verification</span>
+                    <span className="text-sm font-medium text-info">
+                      Membership & Deposit Verification
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Checking your membership status and whether you've already made this month's deposit...
+                    Checking your membership status and whether you've already
+                    made this month's deposit...
                   </p>
                 </div>
               )}
 
               {/* Two-Step Process for ERC20 */}
-              {canMakeDeposits && !hasAlreadyDeposited && needsApproval && step === 'idle' && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <ArrowRight className="h-4 w-4 text-info" />
-                    <span className="text-sm font-medium text-info">Two-Step Process</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">1</span>
-                      <span>Approve tokens for the RONDA contract</span>
+              {canMakeDeposits &&
+                !hasAlreadyDeposited &&
+                needsApproval &&
+                step === 'idle' && (
+                  <div className="p-3 bg-info/5 rounded-lg border border-info/20">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <ArrowRight className="h-4 w-4 text-info" />
+                      <span className="text-sm font-medium text-info">
+                        Two-Step Process
+                      </span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">2</span>
-                      <span>Make monthly deposit to the milestone</span>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div className="flex items-center space-x-2">
+                        <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">
+                          1
+                        </span>
+                        <span>Approve tokens for the RONDA contract</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">
+                          2
+                        </span>
+                        <span>Make monthly deposit to the milestone</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Gas Estimation Progress */}
               {isEstimatingGas && (
                 <div className="p-3 bg-info/5 rounded-lg border border-info/20">
                   <div className="flex items-center space-x-2 mb-2">
                     <Zap className="h-4 w-4 text-info animate-pulse" />
-                    <span className="text-sm font-medium text-info">Calculating Gas Fees</span>
+                    <span className="text-sm font-medium text-info">
+                      Calculating Gas Fees
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Analyzing current network conditions to estimate optimal gas price and limit...
+                    Analyzing current network conditions to estimate optimal gas
+                    price and limit...
                   </p>
                 </div>
               )}
 
               {/* Balance Check */}
-              {canMakeDeposits && !hasAlreadyDeposited && !hasEnoughBalance && !isEstimatingGas && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    Insufficient token balance. You need {monthlyDepositFormatted} tokens plus ETH for gas fees.
-                  </AlertDescription>
-                </Alert>
-              )}
+              {canMakeDeposits &&
+                !hasAlreadyDeposited &&
+                !hasEnoughBalance &&
+                !isEstimatingGas && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Insufficient token balance. You need{' '}
+                      {monthlyDepositFormatted} tokens plus ETH for gas fees.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
               {/* Network Check */}
               {isWrongNetwork && (
@@ -436,7 +562,7 @@ export function DepositButton({
                   </div>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <a 
+                  <a
                     href={`${BLOCK_EXPLORER_URL}/tx/${approvalHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -462,10 +588,10 @@ export function DepositButton({
                     <div className="text-xs text-muted-foreground">
                       Gas Used: {estimatedGas.toLocaleString()} units
                     </div>
-                  ): null}
+                  ) : null}
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <a 
+                  <a
                     href={`${BLOCK_EXPLORER_URL}/tx/${depositHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -500,7 +626,9 @@ export function DepositButton({
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Membership Status:</span>
+                <span className="text-muted-foreground">
+                  Membership Status:
+                </span>
                 <div className="font-medium">
                   {isMember ? '✅ Verified Member' : '❌ Not Member'}
                 </div>
@@ -508,12 +636,22 @@ export function DepositButton({
               <div>
                 <span className="text-muted-foreground">RONDA State:</span>
                 <div className="font-medium">
-                  {rondaState !== null ? ['Open', 'Running', 'Finalized', 'Aborted', 'Randomizing'][rondaState] || 'Unknown' : 'Unknown'}
+                  {rondaState !== null
+                    ? [
+                        'Open',
+                        'Running',
+                        'Finalized',
+                        'Aborted',
+                        'Randomizing',
+                      ][rondaState] || 'Unknown'
+                    : 'Unknown'}
                 </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Deposit Amount:</span>
-                <div className="font-medium">{monthlyDepositFormatted} tokens</div>
+                <div className="font-medium">
+                  {monthlyDepositFormatted} tokens
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Balance Check:</span>
@@ -533,7 +671,9 @@ export function DepositButton({
               </div>
               <div>
                 <span className="text-muted-foreground">Milestone:</span>
-                <div className="font-medium">#{currentMilestone || milestoneIndex}</div>
+                <div className="font-medium">
+                  #{currentMilestone || milestoneIndex}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Can Deposit:</span>
@@ -549,11 +689,17 @@ export function DepositButton({
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
                     <span className="text-muted-foreground">Gas Limit:</span>
-                    <div className="font-mono">{estimatedGas.toLocaleString()} units</div>
+                    <div className="font-mono">
+                      {estimatedGas.toLocaleString()} units
+                    </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Est. Gas Cost:</span>
-                    <div className="font-mono">{parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH</div>
+                    <span className="text-muted-foreground">
+                      Est. Gas Cost:
+                    </span>
+                    <div className="font-mono">
+                      {parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH
+                    </div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Gas Buffer:</span>
@@ -562,27 +708,35 @@ export function DepositButton({
                   <div>
                     <span className="text-muted-foreground">Network:</span>
                     <div className="font-mono">
-                      {chainId === SEPOLIA_CHAIN_ID ? '✅ Sepolia' : '❌ Wrong Network'}
+                      {chainId === SEPOLIA_CHAIN_ID
+                        ? '✅ Sepolia'
+                        : '❌ Wrong Network'}
                     </div>
                   </div>
                 </div>
               </div>
-            ): null}
+            ) : null}
 
             <div className="pt-3 border-t">
               <div className="space-y-2 text-xs">
                 <div>
                   <span className="text-muted-foreground">RONDA Contract:</span>
-                  <div className="font-mono break-all">{roscaContractAddress}</div>
+                  <div className="font-mono break-all">
+                    {roscaContractAddress}
+                  </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Payment Token:</span>
                   <div className="font-mono">ERC20 (approval required)</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Transaction Steps:</span>
+                  <span className="text-muted-foreground">
+                    Transaction Steps:
+                  </span>
                   <div className="font-mono">
-                    {needsApproval ? '1. Check → 2. Approve → 3. Deposit' : '1. Check → 2. Deposit'}
+                    {needsApproval
+                      ? '1. Check → 2. Approve → 3. Deposit'
+                      : '1. Check → 2. Deposit'}
                   </div>
                 </div>
               </div>
@@ -597,26 +751,36 @@ export function DepositButton({
           <CardContent className="p-4">
             <div className="flex items-center space-x-2 mb-3">
               <CheckCircle className="h-5 w-5 text-success" />
-              <span className="font-medium text-success">Deposit Successful!</span>
+              <span className="font-medium text-success">
+                Deposit Successful!
+              </span>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Your monthly deposit has been processed and recorded in the RONDA contract.
+              Your monthly deposit has been processed and recorded in the RONDA
+              contract.
             </p>
             <div className="space-y-2 text-xs text-muted-foreground mb-4">
               <div>Deposit amount: {monthlyDepositFormatted} tokens</div>
               <div>Milestone: #{currentMilestone || milestoneIndex}</div>
               {estimatedGasCostFormatted && (
-                <div>Gas used: {parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH</div>
+                <div>
+                  Gas used: {parseFloat(estimatedGasCostFormatted).toFixed(6)}{' '}
+                  ETH
+                </div>
               )}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+              >
                 <RefreshCw className="h-3 w-3 mr-1" />
                 Refresh Page
               </Button>
               {depositHash && (
                 <Button variant="outline" size="sm" asChild>
-                  <a 
+                  <a
                     href={`${BLOCK_EXPLORER_URL}/tx/${depositHash}`}
                     target="_blank"
                     rel="noopener noreferrer"

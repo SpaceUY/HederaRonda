@@ -1,12 +1,20 @@
 'use client';
 
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import dynamic from 'next/dynamic';
 
 import { ContractGroupsGrid } from '@/components/dashboard/contract-groups-grid';
 import { EmptyState } from '@/components/dashboard/empty-state';
 import { GroupsFilters } from '@/components/dashboard/groups-filters';
-import { Header } from '@/components/layout/header';
+import { Button } from '@/components/ui/button';
 import { useRondaContracts } from '@/hooks/use-ronda-contracts';
+
+// Dynamically import Header to avoid SSR issues with Wagmi hooks
+const Header = dynamic(() => import('@/components/layout/header').then(mod => ({ default: mod.Header })), {
+  ssr: false,
+});
 
 export default function DashboardPage() {
   const { rondas, isLoading, error, refetch } = useRondaContracts();
@@ -45,12 +53,21 @@ export default function DashboardPage() {
       <div className="pt-16">
         <main className="container-max container-padding py-8">
           <div className="space-y-8">
-            {/* Page Header */}
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold">Available RONDAs</h1>
-              <p className="text-muted-foreground">
-                Join a RONDA that matches your financial goals and timeline
-              </p>
+            {/* Page Header with Create Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold">Available RONDAs</h1>
+                <p className="text-muted-foreground">
+                  Join a RONDA that matches your financial goals and timeline
+                </p>
+              </div>
+              
+              <Button size="lg" asChild className="group">
+                <Link href="/create">
+                  <Plus className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                  Create New RONDA
+                </Link>
+              </Button>
             </div>
 
             {/* Filters - Only show if we have data and no errors */}

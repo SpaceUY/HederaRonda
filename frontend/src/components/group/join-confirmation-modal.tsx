@@ -1,27 +1,33 @@
 'use client';
 
 import { ethers } from 'ethers';
-import { 
-  Wallet, 
-  AlertTriangle, 
-  CheckCircle, 
-  Loader2, 
-  X, 
-  DollarSign, 
-  Calendar, 
-  Users, 
-  Clock, 
+import {
+  Wallet,
+  AlertTriangle,
+  CheckCircle,
+  Loader2,
+  X,
+  DollarSign,
+  Calendar,
+  Users,
+  Clock,
   Network,
   Activity,
   RefreshCw,
   Send,
-  ArrowRight
+  ArrowRight,
 } from 'lucide-react';
 import { useState } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
@@ -35,7 +41,13 @@ interface JoinConfirmationModalProps {
   onSuccess: () => void;
 }
 
-type TransactionStatus = 'idle' | 'testing' | 'confirming' | 'processing' | 'success' | 'error';
+type TransactionStatus =
+  | 'idle'
+  | 'testing'
+  | 'confirming'
+  | 'processing'
+  | 'success'
+  | 'error';
 
 interface CCIPTransferResult {
   networkConnection: boolean;
@@ -108,14 +120,22 @@ const CCIP_ROUTER_ABI = [
   'function ccipSend(uint64 destinationChainSelector, tuple(bytes receiver, bytes data, tuple(address token, uint256 amount)[] tokenAmounts, address feeToken, bytes extraArgs) message) external payable returns (bytes32 messageId)',
 ];
 
-export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: JoinConfirmationModalProps) {
+export function JoinConfirmationModal({
+  group,
+  isOpen,
+  onClose,
+  onSuccess,
+}: JoinConfirmationModalProps) {
   const [status, setStatus] = useState<TransactionStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
-  const [ccipTestResult, setCcipTestResult] = useState<CCIPTransferResult | null>(null);
+  const [ccipTestResult, setCcipTestResult] =
+    useState<CCIPTransferResult | null>(null);
   const { chainName, chainId, address, balance } = useWalletInfo();
 
-  if (!isOpen) {return null;}
+  if (!isOpen) {
+    return null;
+  }
 
   const totalContribution = group.monthlyContribution * group.maxMembers;
   const estimatedPosition = group.memberCount + 1;
@@ -124,7 +144,7 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
   // Real CCIP Token Transfer Tests using JavaScript SDK patterns
   const runCCIPTokenTransferTests = async (): Promise<CCIPTransferResult> => {
     console.log('🧪 Starting real CCIP token transfer tests...');
-    
+
     const testResult: CCIPTransferResult = {
       networkConnection: false,
       tokenApproval: null,
@@ -136,14 +156,20 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
     try {
       // Test 1: Network Connection to Sepolia
       console.log('🌐 Testing network connection to Sepolia...');
-      const provider = new ethers.JsonRpcProvider(CCIP_CONFIG.sourceChain.rpcUrl);
+      const provider = new ethers.JsonRpcProvider(
+        CCIP_CONFIG.sourceChain.rpcUrl
+      );
       const network = await provider.getNetwork();
-      
+
       if (Number(network.chainId) === CCIP_CONFIG.sourceChain.chainId) {
         testResult.networkConnection = true;
         console.log('✅ Network connection successful');
       } else {
-        throw new Error(`Wrong network. Expected ${CCIP_CONFIG.sourceChain.chainId}, got ${Number(network.chainId)}`);
+        throw new Error(
+          `Wrong network. Expected ${
+            CCIP_CONFIG.sourceChain.chainId
+          }, got ${Number(network.chainId)}`
+        );
       }
 
       // Test 2: Token Approval Check
@@ -162,7 +188,9 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
         );
 
         // Check token balance
-        const tokenBalance = await tokenContract?.balanceOf?.(address || ethers.ZeroAddress);
+        const tokenBalance = await tokenContract?.balanceOf?.(
+          address || ethers.ZeroAddress
+        );
         const tokenSymbol = await tokenContract?.symbol?.();
 
         testResult.tokenApproval = {
@@ -194,21 +222,29 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
 
       try {
         // Check if destination chain is supported
-        const isSupported = await ccipRouter?.isChainSupported?.(CCIP_CONFIG.destinationChain.ccipChainSelector);
-        
+        const isSupported = await ccipRouter?.isChainSupported?.(
+          CCIP_CONFIG.destinationChain.ccipChainSelector
+        );
+
         // Get supported tokens for the destination chain
-        const supportedTokens = await ccipRouter?.getSupportedTokens?.(CCIP_CONFIG.destinationChain.ccipChainSelector);
-        
+        const supportedTokens = await ccipRouter?.getSupportedTokens?.(
+          CCIP_CONFIG.destinationChain.ccipChainSelector
+        );
+
         testResult.ccipRouterTest = {
           success: true,
           routerAddress: CCIP_CONFIG.sourceChain.ccipRouterAddress,
-          supportedChains: isSupported ? [Number(CCIP_CONFIG.destinationChain.ccipChainSelector)] : [],
+          supportedChains: isSupported
+            ? [Number(CCIP_CONFIG.destinationChain.ccipChainSelector)]
+            : [],
         };
-        
+
         console.log('✅ CCIP Router test successful:', {
           isDestinationSupported: isSupported,
           supportedTokensCount: supportedTokens.length,
-          ccipBnMSupported: supportedTokens.includes(CCIP_CONFIG.sourceChain.ccipBnMTokenAddress),
+          ccipBnMSupported: supportedTokens.includes(
+            CCIP_CONFIG.sourceChain.ccipBnMTokenAddress
+          ),
         });
       } catch (routerError: any) {
         testResult.ccipRouterTest = {
@@ -223,7 +259,10 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
       try {
         // Prepare CCIP message for token transfer (following the SDK example)
         const ccipMessage = {
-          receiver: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [CCIP_CONFIG.rondaContract]),
+          receiver: ethers.AbiCoder.defaultAbiCoder().encode(
+            ['address'],
+            [CCIP_CONFIG.rondaContract]
+          ),
           data: ethers.AbiCoder.defaultAbiCoder().encode(
             ['string', 'address', 'uint256'],
             ['joinRondaWithTokens', address || ethers.ZeroAddress, group.id]
@@ -232,7 +271,7 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
             {
               token: CCIP_CONFIG.sourceChain.ccipBnMTokenAddress,
               amount: CCIP_CONFIG.transferAmount,
-            }
+            },
           ],
           feeToken: ethers.ZeroAddress, // Pay fees in native token (ETH)
           extraArgs: ethers.AbiCoder.defaultAbiCoder().encode(
@@ -242,7 +281,10 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
         };
 
         // Get fee estimation from CCIP Router
-        const feeInWei = await ccipRouter?.getFee?.(CCIP_CONFIG.destinationChain.ccipChainSelector, ccipMessage);
+        const feeInWei = await ccipRouter?.getFee?.(
+          CCIP_CONFIG.destinationChain.ccipChainSelector,
+          ccipMessage
+        );
         const feeInEth = ethers.formatEther(feeInWei);
         const feeInUsd = (parseFloat(feeInEth) * 2500).toFixed(2); // Mock ETH price
 
@@ -275,16 +317,24 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
       try {
         // Simulate the token transfer message preparation
         const transferMessage = {
-          receiver: ethers.AbiCoder.defaultAbiCoder().encode(['address'], [CCIP_CONFIG.rondaContract]),
+          receiver: ethers.AbiCoder.defaultAbiCoder().encode(
+            ['address'],
+            [CCIP_CONFIG.rondaContract]
+          ),
           data: ethers.AbiCoder.defaultAbiCoder().encode(
             ['string', 'address', 'uint256', 'uint256'],
-            ['joinRondaWithTokens', address || ethers.ZeroAddress, group.id, CCIP_CONFIG.transferAmount]
+            [
+              'joinRondaWithTokens',
+              address || ethers.ZeroAddress,
+              group.id,
+              CCIP_CONFIG.transferAmount,
+            ]
           ),
           tokenAmounts: [
             {
               token: CCIP_CONFIG.sourceChain.ccipBnMTokenAddress,
               amount: CCIP_CONFIG.transferAmount,
-            }
+            },
           ],
           feeToken: ethers.ZeroAddress,
           extraArgs: ethers.AbiCoder.defaultAbiCoder().encode(
@@ -301,7 +351,7 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               CCIP_CONFIG.destinationChain.ccipChainSelector,
               CCIP_CONFIG.sourceChain.ccipBnMTokenAddress,
               transferMessage.data,
-              CCIP_CONFIG.transferAmount
+              CCIP_CONFIG.transferAmount,
             ]
           )
         );
@@ -309,7 +359,9 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
         testResult.tokenTransferTest = {
           success: true,
           transferAmount: ethers.formatUnits(CCIP_CONFIG.transferAmount, 18),
-          destinationChain: Number(CCIP_CONFIG.destinationChain.ccipChainSelector),
+          destinationChain: Number(
+            CCIP_CONFIG.destinationChain.ccipChainSelector
+          ),
           messageId: messageId,
         };
 
@@ -323,9 +375,11 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
           success: false,
           error: transferError.message,
         };
-        console.log('❌ CCIP token transfer simulation failed:', transferError.message);
+        console.log(
+          '❌ CCIP token transfer simulation failed:',
+          transferError.message
+        );
       }
-
     } catch (testError: any) {
       console.error('❌ CCIP token transfer tests failed:', testError);
       throw testError;
@@ -339,29 +393,38 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
       // Step 1: Run Real CCIP Token Transfer Tests
       setStatus('testing');
       setError(null);
-      
-      console.log('🚀 Starting RONDA join process with real CCIP token transfer testing...');
-      
+
+      console.log(
+        '🚀 Starting RONDA join process with real CCIP token transfer testing...'
+      );
+
       const testResults = await runCCIPTokenTransferTests();
       setCcipTestResult(testResults);
-      
+
       // Check if critical tests passed
-      if (!testResults.networkConnection || !testResults.ccipRouterTest?.success) {
-        throw new Error('CCIP connectivity tests failed. Please check your network connection and try again.');
+      if (
+        !testResults.networkConnection ||
+        !testResults.ccipRouterTest?.success
+      ) {
+        throw new Error(
+          'CCIP connectivity tests failed. Please check your network connection and try again.'
+        );
       }
-      
+
       console.log('✅ CCIP token transfer tests completed successfully');
-      
+
       // Step 2: Wallet Confirmation
       setStatus('confirming');
-      console.log('🔐 Requesting wallet confirmation for CCIP token transfer...');
-      
+      console.log(
+        '🔐 Requesting wallet confirmation for CCIP token transfer...'
+      );
+
       // Simulate wallet confirmation delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Step 3: Transaction Processing
       setStatus('processing');
-      
+
       console.log('⏳ Processing CCIP token transfer transaction:', {
         groupId: group.id,
         walletAddress: address,
@@ -371,15 +434,15 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
         ccipFee: testResults.ccipFeeEstimation?.feeInEth,
         estimatedGas: testResults.ccipFeeEstimation?.gasLimit,
       });
-      
+
       // Simulate CCIP token transfer processing
-      await new Promise(resolve => setTimeout(resolve, 4000));
+      await new Promise((resolve) => setTimeout(resolve, 4000));
 
       // Step 4: Success
       const mockTxHash = `0x${Math.random().toString(16).substr(2, 40)}`;
       setTxHash(mockTxHash);
       setStatus('success');
-      
+
       console.log('✅ CCIP token transfer transaction successful:', {
         txHash: mockTxHash,
         groupId: group.id,
@@ -391,14 +454,13 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
         ccipTestsPassed: true,
         messageId: testResults.tokenTransferTest?.messageId,
       });
-      
+
       // Auto-close and trigger success callback after showing success state
       setTimeout(() => {
         onSuccess();
         onClose();
         resetModal();
       }, 5000);
-
     } catch (err: any) {
       console.error('❌ CCIP token transfer process failed:', err);
       setError(err.message || 'CCIP token transfer failed. Please try again.');
@@ -414,7 +476,9 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
   };
 
   const handleClose = () => {
-    if (status === 'processing' || status === 'testing') {return;} // Prevent closing during critical operations
+    if (status === 'processing' || status === 'testing') {
+      return;
+    } // Prevent closing during critical operations
     onClose();
     resetModal();
   };
@@ -435,7 +499,9 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
   };
 
   const renderCCIPTestResults = () => {
-    if (!ccipTestResult) {return null;}
+    if (!ccipTestResult) {
+      return null;
+    }
 
     return (
       <Card className="mb-4">
@@ -461,7 +527,13 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               ) : (
                 <X className="h-4 w-4 text-destructive" />
               )}
-              <span className={`text-sm ${ccipTestResult.networkConnection ? 'text-success' : 'text-destructive'}`}>
+              <span
+                className={`text-sm ${
+                  ccipTestResult.networkConnection
+                    ? 'text-success'
+                    : 'text-destructive'
+                }`}
+              >
                 {ccipTestResult.networkConnection ? 'Connected' : 'Failed'}
               </span>
             </div>
@@ -479,7 +551,13 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               ) : (
                 <X className="h-4 w-4 text-destructive" />
               )}
-              <span className={`text-sm ${ccipTestResult.tokenApproval?.success ? 'text-success' : 'text-destructive'}`}>
+              <span
+                className={`text-sm ${
+                  ccipTestResult.tokenApproval?.success
+                    ? 'text-success'
+                    : 'text-destructive'
+                }`}
+              >
                 {ccipTestResult.tokenApproval?.success ? 'Ready' : 'Failed'}
               </span>
             </div>
@@ -497,8 +575,16 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               ) : (
                 <X className="h-4 w-4 text-destructive" />
               )}
-              <span className={`text-sm ${ccipTestResult.ccipRouterTest?.success ? 'text-success' : 'text-destructive'}`}>
-                {ccipTestResult.ccipRouterTest?.success ? 'Connected' : 'Failed'}
+              <span
+                className={`text-sm ${
+                  ccipTestResult.ccipRouterTest?.success
+                    ? 'text-success'
+                    : 'text-destructive'
+                }`}
+              >
+                {ccipTestResult.ccipRouterTest?.success
+                  ? 'Connected'
+                  : 'Failed'}
               </span>
             </div>
           </div>
@@ -515,8 +601,16 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               ) : (
                 <AlertTriangle className="h-4 w-4 text-warning" />
               )}
-              <span className={`text-sm ${ccipTestResult.tokenTransferTest?.success ? 'text-success' : 'text-warning'}`}>
-                {ccipTestResult.tokenTransferTest?.success ? 'Ready' : 'Simulated'}
+              <span
+                className={`text-sm ${
+                  ccipTestResult.tokenTransferTest?.success
+                    ? 'text-success'
+                    : 'text-warning'
+                }`}
+              >
+                {ccipTestResult.tokenTransferTest?.success
+                  ? 'Ready'
+                  : 'Simulated'}
               </span>
             </div>
           </div>
@@ -526,24 +620,39 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
             <div className="p-3 bg-info/5 border border-info/20 rounded">
               <div className="flex items-center space-x-2 mb-2">
                 <DollarSign className="h-4 w-4 text-info" />
-                <span className="text-sm font-medium text-info">Real CCIP Transfer Fee</span>
+                <span className="text-sm font-medium text-info">
+                  Real CCIP Transfer Fee
+                </span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-xs">
                 <div>
-                  <span className="text-muted-foreground">Transfer Amount:</span>
-                  <div className="font-medium">{ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)} CCIP-BnM</div>
+                  <span className="text-muted-foreground">
+                    Transfer Amount:
+                  </span>
+                  <div className="font-medium">
+                    {ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)}{' '}
+                    CCIP-BnM
+                  </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">CCIP Fee:</span>
-                  <div className="font-medium">{parseFloat(ccipTestResult.ccipFeeEstimation.feeInEth).toFixed(6)} ETH</div>
+                  <div className="font-medium">
+                    {parseFloat(
+                      ccipTestResult.ccipFeeEstimation.feeInEth
+                    ).toFixed(6)}{' '}
+                    ETH
+                  </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">USD Cost:</span>
-                  <div className="font-medium">${ccipTestResult.ccipFeeEstimation.feeInUsd}</div>
+                  <div className="font-medium">
+                    ${ccipTestResult.ccipFeeEstimation.feeInUsd}
+                  </div>
                 </div>
               </div>
               <div className="mt-2 text-xs text-muted-foreground">
-                Fee calculated for token transfer using CCIP Router: {CCIP_CONFIG.sourceChain.ccipRouterAddress.slice(0, 10)}...
+                Fee calculated for token transfer using CCIP Router:{' '}
+                {CCIP_CONFIG.sourceChain.ccipRouterAddress.slice(0, 10)}...
               </div>
             </div>
           )}
@@ -553,11 +662,19 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
             <div className="p-3 bg-success/5 border border-success/20 rounded">
               <div className="flex items-center space-x-2 mb-2">
                 <Send className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium text-success">Token Transfer Details</span>
+                <span className="text-sm font-medium text-success">
+                  Token Transfer Details
+                </span>
               </div>
               <div className="text-xs space-y-1">
-                <div>Transfer Amount: {ccipTestResult.tokenTransferTest.transferAmount} CCIP-BnM</div>
-                <div>Message ID: {ccipTestResult.tokenTransferTest.messageId?.slice(0, 20)}...</div>
+                <div>
+                  Transfer Amount:{' '}
+                  {ccipTestResult.tokenTransferTest.transferAmount} CCIP-BnM
+                </div>
+                <div>
+                  Message ID:{' '}
+                  {ccipTestResult.tokenTransferTest.messageId?.slice(0, 20)}...
+                </div>
                 <div>Destination: {CCIP_CONFIG.destinationChain.name}</div>
               </div>
             </div>
@@ -565,19 +682,27 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
 
           {/* Chain Information */}
           <div className="p-3 bg-muted/50 rounded-lg">
-            <div className="text-sm font-medium mb-2">CCIP Token Transfer Route</div>
+            <div className="text-sm font-medium mb-2">
+              CCIP Token Transfer Route
+            </div>
             <div className="flex items-center justify-between text-xs">
               <div className="text-center">
-                <div className="font-medium">{CCIP_CONFIG.sourceChain.name}</div>
+                <div className="font-medium">
+                  {CCIP_CONFIG.sourceChain.name}
+                </div>
                 <div className="text-muted-foreground">CCIP-BnM Token</div>
               </div>
               <div className="flex items-center space-x-1">
                 <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                <span className="text-xs">{ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)}</span>
+                <span className="text-xs">
+                  {ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)}
+                </span>
                 <ArrowRight className="h-3 w-3 text-muted-foreground" />
               </div>
               <div className="text-center">
-                <div className="font-medium">{CCIP_CONFIG.destinationChain.name}</div>
+                <div className="font-medium">
+                  {CCIP_CONFIG.destinationChain.name}
+                </div>
                 <div className="text-muted-foreground">RONDA Contract</div>
               </div>
             </div>
@@ -596,9 +721,12 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               <Loader2 className="h-8 w-8 text-info animate-spin" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Testing CCIP Token Transfer...</h3>
+              <h3 className="text-xl font-semibold">
+                Testing CCIP Token Transfer...
+              </h3>
               <p className="text-muted-foreground">
-                Running real Chainlink CCIP token transfer tests including fee calculation and cross-chain token routing.
+                Running real Chainlink CCIP token transfer tests including fee
+                calculation and cross-chain token routing.
               </p>
             </div>
             <div className="p-4 bg-muted/50 rounded-lg">
@@ -617,7 +745,9 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
                 </div>
                 <div className="flex items-center space-x-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Testing cross-chain token transfer to Arbitrum Sepolia...</span>
+                  <span>
+                    Testing cross-chain token transfer to Arbitrum Sepolia...
+                  </span>
                 </div>
               </div>
             </div>
@@ -631,27 +761,37 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               <CheckCircle className="h-8 w-8 text-success" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">CCIP Token Transfer Successful!</h3>
+              <h3 className="text-xl font-semibold">
+                CCIP Token Transfer Successful!
+              </h3>
               <p className="text-muted-foreground">
-                Your RONDA membership tokens have been transferred using Chainlink CCIP cross-chain infrastructure.
+                Your RONDA membership tokens have been transferred using
+                Chainlink CCIP cross-chain infrastructure.
               </p>
             </div>
-            
+
             {renderCCIPTestResults()}
-            
+
             {txHash && (
               <div className="space-y-2">
                 <div className="p-3 bg-muted rounded-lg">
-                  <p className="text-xs text-muted-foreground mb-1">CCIP Transaction Hash:</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    CCIP Transaction Hash:
+                  </p>
                   <p className="text-xs font-mono break-all">{txHash}</p>
                 </div>
                 <div className="p-3 bg-success/5 rounded-lg border border-success/20">
                   <div className="flex items-center space-x-2 mb-1">
                     <Send className="h-4 w-4 text-success" />
-                    <span className="text-sm font-medium text-success">Cross-chain Token Transfer via CCIP</span>
+                    <span className="text-sm font-medium text-success">
+                      Cross-chain Token Transfer via CCIP
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)} CCIP-BnM tokens transferred from {CCIP_CONFIG.sourceChain.name} to {CCIP_CONFIG.destinationChain.name}
+                    {ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)}{' '}
+                    CCIP-BnM tokens transferred from{' '}
+                    {CCIP_CONFIG.sourceChain.name} to{' '}
+                    {CCIP_CONFIG.destinationChain.name}
                   </p>
                 </div>
               </div>
@@ -666,39 +806,57 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               <Loader2 className="h-8 w-8 text-primary animate-spin" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Processing CCIP Token Transfer...</h3>
+              <h3 className="text-xl font-semibold">
+                Processing CCIP Token Transfer...
+              </h3>
               <p className="text-muted-foreground">
-                Your cross-chain token transfer is being processed via Chainlink CCIP infrastructure.
+                Your cross-chain token transfer is being processed via Chainlink
+                CCIP infrastructure.
               </p>
             </div>
-            
+
             {renderCCIPTestResults()}
-            
+
             <div className="p-4 bg-muted/50 rounded-lg">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Transfer Amount:</span>
-                  <span className="font-medium">{ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)} CCIP-BnM</span>
+                  <span className="text-muted-foreground">
+                    Transfer Amount:
+                  </span>
+                  <span className="font-medium">
+                    {ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)}{' '}
+                    CCIP-BnM
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Source Chain:</span>
-                  <span className="font-medium">{CCIP_CONFIG.sourceChain.name}</span>
+                  <span className="font-medium">
+                    {CCIP_CONFIG.sourceChain.name}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Destination Chain:</span>
-                  <span className="font-medium">{CCIP_CONFIG.destinationChain.name}</span>
+                  <span className="text-muted-foreground">
+                    Destination Chain:
+                  </span>
+                  <span className="font-medium">
+                    {CCIP_CONFIG.destinationChain.name}
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">CCIP Fee:</span>
                   <span className="font-medium">
-                    {ccipTestResult?.ccipFeeEstimation ? 
-                      `${parseFloat(ccipTestResult.ccipFeeEstimation.feeInEth).toFixed(6)} ETH (~$${ccipTestResult.ccipFeeEstimation.feeInUsd})` : 
-                      'Calculating...'
-                    }
+                    {ccipTestResult?.ccipFeeEstimation
+                      ? `${parseFloat(
+                          ccipTestResult.ccipFeeEstimation.feeInEth
+                        ).toFixed(6)} ETH (~$${
+                          ccipTestResult.ccipFeeEstimation.feeInUsd
+                        })`
+                      : 'Calculating...'}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
-                  Do not close this window while the CCIP token transfer is processing.
+                  Do not close this window while the CCIP token transfer is
+                  processing.
                 </p>
               </div>
             </div>
@@ -712,14 +870,17 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               <Wallet className="h-8 w-8 text-warning" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-semibold">Confirm CCIP Token Transfer</h3>
+              <h3 className="text-xl font-semibold">
+                Confirm CCIP Token Transfer
+              </h3>
               <p className="text-muted-foreground">
-                Please confirm the cross-chain token transfer transaction in your connected wallet.
+                Please confirm the cross-chain token transfer transaction in
+                your connected wallet.
               </p>
             </div>
-            
+
             {renderCCIPTestResults()}
-            
+
             <div className="p-4 bg-warning/5 rounded-lg border border-warning/20">
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
@@ -729,22 +890,31 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Transfer Amount:</span>
-                  <span className="font-medium">{ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)} CCIP-BnM</span>
+                  <span className="text-muted-foreground">
+                    Transfer Amount:
+                  </span>
+                  <span className="font-medium">
+                    {ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)}{' '}
+                    CCIP-BnM
+                  </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">CCIP Route:</span>
                   <span className="font-medium">
-                    {CCIP_CONFIG.sourceChain.name} → {CCIP_CONFIG.destinationChain.name}
+                    {CCIP_CONFIG.sourceChain.name} →{' '}
+                    {CCIP_CONFIG.destinationChain.name}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Total Fee:</span>
                   <span className="font-medium">
-                    {ccipTestResult?.ccipFeeEstimation ? 
-                      `${parseFloat(ccipTestResult.ccipFeeEstimation.feeInEth).toFixed(6)} ETH (~$${ccipTestResult.ccipFeeEstimation.feeInUsd})` : 
-                      'Calculating...'
-                    }
+                    {ccipTestResult?.ccipFeeEstimation
+                      ? `${parseFloat(
+                          ccipTestResult.ccipFeeEstimation.feeInEth
+                        ).toFixed(6)} ETH (~$${
+                          ccipTestResult.ccipFeeEstimation.feeInUsd
+                        })`
+                      : 'Calculating...'}
                   </span>
                 </div>
               </div>
@@ -758,7 +928,9 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
             {/* Group Summary */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <h3 className="text-xl font-semibold">Join RONDA #{group.id}</h3>
+                <h3 className="text-xl font-semibold">
+                  Join RONDA #{group.id}
+                </h3>
                 <p className="text-muted-foreground">{group.description}</p>
               </div>
 
@@ -770,7 +942,8 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
                     <span>Your Contribution</span>
                   </div>
                   <div className="font-semibold text-lg">
-                    {formatCurrency(group.monthlyContribution, group.currency)}/month
+                    {formatCurrency(group.monthlyContribution, group.currency)}
+                    /month
                   </div>
                 </div>
 
@@ -816,7 +989,12 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
                   when it's your turn (estimated month {estimatedPayoutMonth}).
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Total commitment: {formatCurrency(group.monthlyContribution * group.duration, group.currency)} over {group.duration} months
+                  Total commitment:{' '}
+                  {formatCurrency(
+                    group.monthlyContribution * group.duration,
+                    group.currency
+                  )}{' '}
+                  over {group.duration} months
                 </p>
               </div>
             </div>
@@ -832,45 +1010,69 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
                   <span>Chainlink CCIP Token Transfer</span>
                 </CardTitle>
                 <CardDescription>
-                  This transaction will transfer CCIP-BnM test tokens using real Chainlink CCIP infrastructure
+                  This transaction will transfer CCIP-BnM test tokens using real
+                  Chainlink CCIP infrastructure
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Transaction Type:</span>
-                    <span className="font-medium">CCIP Cross-Chain Token Transfer</span>
+                    <span className="text-muted-foreground">
+                      Transaction Type:
+                    </span>
+                    <span className="font-medium">
+                      CCIP Cross-Chain Token Transfer
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Transfer Amount:</span>
-                    <span className="font-medium">{ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)} CCIP-BnM</span>
+                    <span className="text-muted-foreground">
+                      Transfer Amount:
+                    </span>
+                    <span className="font-medium">
+                      {ethers.formatUnits(CCIP_CONFIG.transferAmount, 18)}{' '}
+                      CCIP-BnM
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Source Chain:</span>
-                    <span className="font-medium">{CCIP_CONFIG.sourceChain.name}</span>
+                    <span className="font-medium">
+                      {CCIP_CONFIG.sourceChain.name}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Destination Chain:</span>
-                    <span className="font-medium">{CCIP_CONFIG.destinationChain.name}</span>
+                    <span className="text-muted-foreground">
+                      Destination Chain:
+                    </span>
+                    <span className="font-medium">
+                      {CCIP_CONFIG.destinationChain.name}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Current Network:</span>
+                    <span className="text-muted-foreground">
+                      Current Network:
+                    </span>
                     <span className="font-medium">{chainName}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">CCIP Fee:</span>
-                    <span className="font-medium">Will be calculated using SDK</span>
+                    <span className="font-medium">
+                      Will be calculated using SDK
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Your Balance:</span>
                     <span className="font-medium">
-                      {balance ? `${parseFloat(balance).toFixed(4)} ETH` : 'Loading...'}
+                      {balance
+                        ? `${parseFloat(balance).toFixed(4)} ETH`
+                        : 'Loading...'}
                     </span>
                   </div>
                 </div>
 
                 <div className="p-3 bg-muted/50 rounded-lg">
-                  <h5 className="font-medium text-sm mb-2">Real CCIP Token Transfer Features:</h5>
+                  <h5 className="font-medium text-sm mb-2">
+                    Real CCIP Token Transfer Features:
+                  </h5>
                   <ul className="text-xs text-muted-foreground space-y-1">
                     <li>• Real fee calculation using CCIP Router contract</li>
                     <li>• CCIP-BnM test token approval and transfer</li>
@@ -886,7 +1088,9 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
                   <Alert variant="destructive">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
-                      Please switch to {CCIP_CONFIG.sourceChain.name} (Chain ID: {CCIP_CONFIG.sourceChain.chainId}) to test CCIP token transfer functionality.
+                      Please switch to {CCIP_CONFIG.sourceChain.name} (Chain ID:{' '}
+                      {CCIP_CONFIG.sourceChain.chainId}) to test CCIP token
+                      transfer functionality.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -899,19 +1103,29 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                  <span>Real CCIP SDK tests will run (token approval, fee calculation)</span>
+                  <span>
+                    Real CCIP SDK tests will run (token approval, fee
+                    calculation)
+                  </span>
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                  <span>CCIP-BnM tokens will be prepared for cross-chain transfer</span>
+                  <span>
+                    CCIP-BnM tokens will be prepared for cross-chain transfer
+                  </span>
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                  <span>CCIP fees will be calculated using Chainlink's Router contract</span>
+                  <span>
+                    CCIP fees will be calculated using Chainlink's Router
+                    contract
+                  </span>
                 </div>
                 <div className="flex items-start space-x-2">
                   <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
-                  <span>Token transfer will be submitted to CCIP infrastructure</span>
+                  <span>
+                    Token transfer will be submitted to CCIP infrastructure
+                  </span>
                 </div>
               </div>
             </div>
@@ -933,17 +1147,16 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
         <DialogTitle className="text-lg font-semibold">
           {getDialogTitle()}
         </DialogTitle>
-        
+
         {status === 'idle' && (
           <p className="text-sm text-muted-foreground mb-4">
-            Review the details and confirm your membership with real CCIP token transfer
+            Review the details and confirm your membership with real CCIP token
+            transfer
           </p>
         )}
 
         {/* Content */}
-        <div className="space-y-4">
-          {renderContent()}
-        </div>
+        <div className="space-y-4">{renderContent()}</div>
 
         {/* Footer Actions */}
         {status === 'idle' && (
@@ -951,8 +1164,8 @@ export function JoinConfirmationModal({ group, isOpen, onClose, onSuccess }: Joi
             <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleJoin} 
+            <Button
+              onClick={handleJoin}
               className="w-full sm:w-auto gap-2"
               disabled={chainId !== CCIP_CONFIG.sourceChain.chainId}
             >

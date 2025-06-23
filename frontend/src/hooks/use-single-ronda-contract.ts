@@ -56,7 +56,9 @@ interface UseSingleRondaContractReturn {
   refetch: () => Promise<void>;
 }
 
-export function useSingleRondaContract(contractAddress: string): UseSingleRondaContractReturn {
+export function useSingleRondaContract(
+  contractAddress: string
+): UseSingleRondaContractReturn {
   const [ronda, setRonda] = useState<SingleRondaData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,12 +74,17 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       setIsLoading(true);
       setError(null);
 
-      console.log('🔗 Connecting to Sepolia network for contract:', contractAddress);
+      console.log(
+        '🔗 Connecting to Sepolia network for contract:',
+        contractAddress
+      );
       console.log('🌐 Using RPC URL:', NETWORK_CONFIG.SEPOLIA.rpcUrl);
-      
+
       // Create provider for Sepolia
-      const provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.SEPOLIA.rpcUrl);
-      
+      const provider = new ethers.JsonRpcProvider(
+        NETWORK_CONFIG.SEPOLIA.rpcUrl
+      );
+
       // Test network connection
       const network = await provider.getNetwork();
       console.log('🌐 Connected to network:', {
@@ -86,14 +93,22 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       });
 
       if (Number(network.chainId) !== NETWORK_CONFIG.SEPOLIA.chainId) {
-        throw new Error(`Wrong network. Expected Sepolia (${NETWORK_CONFIG.SEPOLIA.chainId}), got ${Number(network.chainId)}`);
+        throw new Error(
+          `Wrong network. Expected Sepolia (${
+            NETWORK_CONFIG.SEPOLIA.chainId
+          }), got ${Number(network.chainId)}`
+        );
       }
 
       // Create RONDA contract instance
-      const rondaContract = new ethers.Contract(contractAddress, RONDA_ABI, provider);
-      
+      const rondaContract = new ethers.Contract(
+        contractAddress,
+        RONDA_ABI,
+        provider
+      );
+
       console.log('📋 Fetching RONDA contract data...');
-      
+
       // Fetch basic contract data
       const [
         currentState,
@@ -101,14 +116,14 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         milestoneCount,
         monthlyDeposit,
         entryFee,
-        paymentToken
+        paymentToken,
       ] = await Promise.all([
         rondaContract?.currentState?.(),
         rondaContract?.participantCount?.(), // This is max participants
         rondaContract?.milestoneCount?.(),
         rondaContract?.monthlyDeposit?.(),
         rondaContract?.entryFee?.(),
-        rondaContract?.paymentToken?.()
+        rondaContract?.paymentToken?.(),
       ]);
 
       // Determine if using ETH or ERC20
@@ -122,16 +137,20 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       } else {
         // Try to get token symbol and decimals
         try {
-          const tokenContract = new ethers.Contract(paymentToken, [
-            'function symbol() view returns (string)',
-            'function decimals() view returns (uint8)'
-          ], provider);
-          
+          const tokenContract = new ethers.Contract(
+            paymentToken,
+            [
+              'function symbol() view returns (string)',
+              'function decimals() view returns (uint8)',
+            ],
+            provider
+          );
+
           const [symbol, decimals] = await Promise.all([
             tokenContract?.symbol?.(),
-            tokenContract?.decimals?.()
+            tokenContract?.decimals?.(),
           ]);
-          
+
           tokenSymbol = symbol;
           tokenDecimals = Number(decimals);
         } catch (err) {
@@ -142,12 +161,13 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       // Try to fetch additional data (these might not exist in all contracts)
       let creator, creationTime, lastMilestoneTime, totalDeposited;
       try {
-        [creator, creationTime, lastMilestoneTime, totalDeposited] = await Promise.all([
-          rondaContract?.owner?.().catch(() => null),
-          Promise.resolve(null), // creationTime not available in new ABI
-          Promise.resolve(null), // lastMilestoneTime not available in new ABI
-          Promise.resolve(null)  // totalDeposited not available in new ABI
-        ]);
+        [creator, creationTime, lastMilestoneTime, totalDeposited] =
+          await Promise.all([
+            rondaContract?.owner?.().catch(() => null),
+            Promise.resolve(null), // creationTime not available in new ABI
+            Promise.resolve(null), // lastMilestoneTime not available in new ABI
+            Promise.resolve(null), // totalDeposited not available in new ABI
+          ]);
       } catch (err) {
         console.log('ℹ️ Some optional contract methods not available');
       }
@@ -180,7 +200,8 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       const stateNumber = Number(currentState);
       let participants: string[] = [];
 
-      if (stateNumber === 0 || stateNumber === 4) { // Open or Randomizing
+      if (stateNumber === 0 || stateNumber === 4) {
+        // Open or Randomizing
         // Use joinedParticipants for states where slots are not yet assigned
         participants = joinedParticipants;
       } else {
@@ -207,7 +228,7 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         date?: Date;
       }> = [];
       const milestoneCountNum = Number(milestoneCount);
-      
+
       for (let i = 0; i < milestoneCountNum; i++) {
         try {
           const milestone = await rondaContract?.milestones?.(i);
@@ -216,7 +237,7 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
             isCompleted: milestone[0],
             totalDeposits: milestone[1].toString(),
             requiredDeposits: milestone[2].toString(),
-             // Date calculation would need additional logic
+            // Date calculation would need additional logic
           });
         } catch (err) {
           console.warn(`⚠️ Could not fetch milestone ${i}:`, err);
@@ -224,20 +245,20 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       }
 
       const stateName = RONDA_STATES[stateNumber] || 'Unknown';
-      
+
       // Format amounts based on token type
-      const monthlyDepositFormatted = isETH 
+      const monthlyDepositFormatted = isETH
         ? parseFloat(ethers.formatEther(monthlyDeposit))
         : Number(monthlyDeposit) / Math.pow(10, tokenDecimals);
-      
-      const entryFeeFormatted = isETH 
+
+      const entryFeeFormatted = isETH
         ? parseFloat(ethers.formatEther(entryFee))
         : Number(entryFee) / Math.pow(10, tokenDecimals);
-      
-      const totalDepositedFormatted = totalDeposited 
-        ? (isETH 
+
+      const totalDepositedFormatted = totalDeposited
+        ? isETH
           ? parseFloat(ethers.formatEther(totalDeposited))
-          : Number(totalDeposited) / Math.pow(10, tokenDecimals))
+          : Number(totalDeposited) / Math.pow(10, tokenDecimals)
         : 0;
 
       // Calculate derived values
@@ -245,25 +266,40 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
       const availableSpots = maxParticipantsNum - currentParticipantCount;
       const totalContribution = monthlyDepositFormatted * maxParticipantsNum;
       const isActive = stateNumber === 0 || stateNumber === 1; // Open or Running
-      
+
       // Calculate dates
-      const creationDate = creationTime ? new Date(Number(creationTime) * 1000) : new Date();
-      const nextRoundStart = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)); // Mock: 30 days from now
+      const creationDate = creationTime
+        ? new Date(Number(creationTime) * 1000)
+        : new Date();
+      const nextRoundStart = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Mock: 30 days from now
       const startDate = creationDate;
       const duration = milestoneCountNum;
 
       // Generate description and rules based on contract data
-      const description = `RONDA Smart Contract with ${maxParticipantsNum} participants and ${monthlyDepositFormatted.toFixed(tokenDecimals === 18 ? 4 : 2)} ${tokenSymbol} monthly deposits`;
+      const description = `RONDA Smart Contract with ${maxParticipantsNum} participants and ${monthlyDepositFormatted.toFixed(
+        tokenDecimals === 18 ? 4 : 2
+      )} ${tokenSymbol} monthly deposits`;
       const currency = tokenSymbol;
-      const paymentSchedule = 'Monthly contributions as defined by smart contract';
+      const paymentSchedule =
+        'Monthly contributions as defined by smart contract';
       const rules = [
-        `Monthly contributions of ${monthlyDepositFormatted.toFixed(tokenDecimals === 18 ? 4 : 2)} ${tokenSymbol} required`,
+        `Monthly contributions of ${monthlyDepositFormatted.toFixed(
+          tokenDecimals === 18 ? 4 : 2
+        )} ${tokenSymbol} required`,
         `Maximum ${maxParticipantsNum} participants allowed`,
-        entryFeeFormatted > 0 ? `Entry fee of ${entryFeeFormatted.toFixed(tokenDecimals === 18 ? 4 : 2)} ${tokenSymbol} required` : 'No entry fee required',
-        isETH ? 'Payments made in native ETH' : `Payments made in ${tokenSymbol} tokens (approval required)`,
+        entryFeeFormatted > 0
+          ? `Entry fee of ${entryFeeFormatted.toFixed(
+              tokenDecimals === 18 ? 4 : 2
+            )} ${tokenSymbol} required`
+          : 'No entry fee required',
+        isETH
+          ? 'Payments made in native ETH'
+          : `Payments made in ${tokenSymbol} tokens (approval required)`,
         'Smart contract automatically manages payments and distributions',
         'Milestone completion tracked on-chain',
-        stateNumber === 0 ? 'Currently accepting new participants' : 'Participation closed'
+        stateNumber === 0
+          ? 'Currently accepting new participants'
+          : 'Participation closed',
       ].filter(Boolean);
 
       const rondaData: SingleRondaData = {
@@ -287,7 +323,9 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         creationTime: creationTime ? Number(creationTime) : 0,
         creationDate,
         lastMilestoneTime: lastMilestoneTime ? Number(lastMilestoneTime) : 0,
-        totalDeposited: totalDeposited ? (totalDeposited as bigint).toString() : '0',
+        totalDeposited: totalDeposited
+          ? (totalDeposited as bigint).toString()
+          : '0',
         totalDepositedFormatted,
         availableSpots,
         totalContribution,
@@ -300,7 +338,7 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         // Token information
         isETH,
         tokenSymbol,
-        tokenDecimals
+        tokenDecimals,
       };
 
       console.log('✅ RONDA contract data fetched:', {
@@ -313,11 +351,10 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
         milestones: rondaData.milestoneCount,
         isETH: rondaData.isETH,
         tokenSymbol: rondaData.tokenSymbol,
-        tokenDecimals: rondaData.tokenDecimals
+        tokenDecimals: rondaData.tokenDecimals,
       });
 
       setRonda(rondaData);
-
     } catch (err: any) {
       console.error('❌ Error fetching RONDA contract data:', err);
       setError(err.message || 'Failed to fetch RONDA contract data');
@@ -338,6 +375,6 @@ export function useSingleRondaContract(contractAddress: string): UseSingleRondaC
     ronda,
     isLoading,
     error,
-    refetch
+    refetch,
   };
 }

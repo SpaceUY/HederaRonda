@@ -2,6 +2,7 @@
 
 import { Users, Calendar, DollarSign, Clock, Shield, CheckCircle, AlertTriangle, RefreshCw, Network, ExternalLink, Zap } from 'lucide-react';
 import { notFound } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 import { JoinButton } from '@/components/group/join-button';
 import { Header } from '@/components/layout/header';
@@ -9,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useTokenFormatter } from '@/hooks/use-token-formatter';
 import { useSingleRondaContract } from '@/hooks/use-single-ronda-contract';
 import { useVerification } from '@/hooks/use-verification';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -22,6 +24,18 @@ interface GroupDetailPageProps {
 export default function GroupDetailPage({ params }: GroupDetailPageProps) {
   const { ronda, isLoading, error, refetch } = useSingleRondaContract(params.id);
   const { verificationState } = useVerification();
+  
+  // Use token formatter for dynamic amount formatting - pass the raw contract values
+  const {
+    monthlyDeposit: formattedMonthlyDeposit,
+    entryFee: formattedEntryFee,
+    totalContribution: formattedTotalContribution,
+    isLoading: isFormattingAmounts,
+  } = useTokenFormatter(
+    params.id,
+    ronda?.monthlyDeposit, // Raw contract value (string)
+    ronda?.maxParticipants
+  );
 
   if (error) {
     return (
@@ -126,16 +140,6 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
     }
   };
 
-  const formatMonthlyAmount = () => {
-    const amount = ronda.monthlyDepositFormatted;
-    const token = ronda.paymentToken === '0x0000000000000000000000000000000000000000' ? 'ETH' : 'USDC';
-    
-    if (amount < 0.001) {
-      return `${(amount * 1000).toFixed(2)} mETH monthly`;
-    }
-    return `${amount.toFixed(3)} ${token} monthly`;
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -168,7 +172,13 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                 RONDA Savings Circle
               </h1>
               <p className="text-xl text-muted-foreground max-w-3xl">
-                Join {ronda.maxParticipants} members saving {formatMonthlyAmount()} with secure smart contract automation
+                Join {ronda.maxParticipants} members saving {
+                  isFormattingAmounts ? (
+                    <span className="inline-block w-32 h-6 bg-muted animate-pulse rounded" />
+                  ) : (
+                    formattedMonthlyDeposit || `${ronda.monthlyDepositFormatted.toFixed(4)} ${ronda.tokenSymbol}`
+                  )
+                } with secure smart contract automation
               </p>
             </div>
 
@@ -262,7 +272,11 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                       <span>Monthly</span>
                     </div>
                     <div className="font-semibold text-lg">
-                      {ronda.monthlyDepositFormatted.toFixed(4)} ETH
+                      {isFormattingAmounts ? (
+                        <div className="h-6 bg-muted animate-pulse rounded w-20" />
+                      ) : (
+                        formattedMonthlyDeposit || `${ronda.monthlyDepositFormatted.toFixed(4)} ${ronda.tokenSymbol}`
+                      )}
                     </div>
                   </div>
                   
@@ -297,22 +311,24 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                   </div>
                 </div>
 
-                {/* Entry Fee */}
-                {ronda.entryFeeFormatted > 0 && (
-                  <div className="p-4 bg-warning/5 rounded-lg border border-warning/20">
-                    <h4 className="font-medium mb-2 text-warning">Entry Fee Required</h4>
-                    <p className="text-sm mb-2">
-                      This RONDA requires a one-time entry fee of{' '}
-                      <span className="font-semibold text-foreground">
-                        {ronda.entryFeeFormatted.toFixed(4)} ETH
-                      </span>{' '}
-                      to join, plus your first monthly contribution.
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Total to join: {(ronda.entryFeeFormatted + ronda.monthlyDepositFormatted).toFixed(4)} ETH
-                    </p>
-                  </div>
-                )}
+                {/* Total Payout Information */}
+                <div className="p-4 bg-success/5 rounded-lg border border-success/20">
+                  <h4 className="font-medium mb-2 text-success">Total Payout</h4>
+                  <p className="text-sm mb-2">
+                    Each member will receive{' '}
+                    <span className="font-semibold text-foreground">
+                      {isFormattingAmounts ? (
+                        <span className="inline-block w-24 h-4 bg-muted animate-pulse rounded" />
+                      ) : (
+                        formattedTotalContribution || `${ronda.totalContribution.toFixed(4)} ${ronda.tokenSymbol}`
+                      )}
+                    </span>{' '}
+                    when it's their turn to receive the payout.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    This is the total of all monthly contributions from {ronda.maxParticipants} members
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
@@ -384,9 +400,9 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                     <div>
                       <span className="text-muted-foreground">Payment Token:</span>
                       <div className="font-medium mt-1">
-                        {ronda.paymentToken === '0x0000000000000000000000000000000000000000' 
+                        {ronda.isETH 
                           ? 'Native ETH' 
-                          : `Token: ${ronda.paymentToken.slice(0, 10)}...`
+                          : `${ronda.tokenSymbol} Token`
                         }
                       </div>
                     </div>
@@ -530,7 +546,8 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                       <div className="text-xs text-muted-foreground space-y-1">
                         <div>1. Verify identity with World ID</div>
                         <div>2. Connect your crypto wallet</div>
-                        <div>3. Approve and join the RONDA</div>
+                        <div>3. Check for penalty tokens</div>
+                        <div>4. Approve and join the RONDA</div>
                       </div>
                     </div>
                   </div>
@@ -555,9 +572,9 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Payment Token</span>
                   <span className="font-medium">
-                    {ronda.paymentToken === '0x0000000000000000000000000000000000000000' 
-                      ? 'ETH' 
-                      : `${ronda.paymentToken.slice(0, 6)}...${ronda.paymentToken.slice(-4)}`
+                    {ronda.isETH 
+                      ? 'Native ETH' 
+                      : `${ronda.tokenSymbol} Token`
                     }
                   </span>
                 </div>
@@ -569,12 +586,38 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                     </span>
                   </div>
                 )}
-                {ronda.totalDepositedFormatted !== undefined && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Monthly Deposit</span>
+                  <span className="font-medium">
+                    {isFormattingAmounts ? (
+                      <div className="h-4 bg-muted animate-pulse rounded w-16" />
+                    ) : (
+                      formattedMonthlyDeposit || `${ronda.monthlyDepositFormatted.toFixed(4)} ${ronda.tokenSymbol}`
+                    )}
+                  </span>
+                </div>
+                {ronda.entryFeeFormatted > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total Deposited</span>
-                    <span className="font-medium">{ronda.totalDepositedFormatted.toFixed(4)} ETH</span>
+                    <span className="text-muted-foreground">Entry Fee</span>
+                    <span className="font-medium">
+                      {isFormattingAmounts ? (
+                        <div className="h-4 bg-muted animate-pulse rounded w-12" />
+                      ) : (
+                        formattedEntryFee || `${ronda.entryFeeFormatted.toFixed(4)} ETH`
+                      )}
+                    </span>
                   </div>
                 )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Total Payout</span>
+                  <span className="font-medium text-success">
+                    {isFormattingAmounts ? (
+                      <div className="h-4 bg-muted animate-pulse rounded w-20" />
+                    ) : (
+                      formattedTotalContribution || `${ronda.totalContribution.toFixed(4)} ${ronda.tokenSymbol}`
+                    )}
+                  </span>
+                </div>
               </CardContent>
             </Card>
           </div>
