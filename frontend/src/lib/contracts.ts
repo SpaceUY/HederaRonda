@@ -54,11 +54,57 @@ export const RONDA_ABI = [
   {"inputs":[{"internalType":"address","name":"to","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"}
 ] as const;
 
-// Factory ABI for getting RONDA instances
+// Factory ABI - Updated to match the actual deployed proxy contract
 export const FACTORY_ABI = [
-  "function getRondaCount() external view returns (uint256)",
-  "function getRondaInstances() external view returns (address[])",
-  "function rondaInstances(uint256) external view returns (address)"
+  // Read functions from the proxy contract
+  {
+    "inputs": [],
+    "name": "getRondaCount",
+    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getRondaInstances",
+    "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+    "name": "rondaInstances",
+    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  // Write functions from the proxy contract
+  {
+    "inputs": [
+      {"internalType": "uint256", "name": "_participantCount", "type": "uint256"},
+      {"internalType": "uint256", "name": "_milestoneCount", "type": "uint256"},
+      {"internalType": "uint256", "name": "_monthlyDeposit", "type": "uint256"},
+      {"internalType": "uint256", "name": "_entryFee", "type": "uint256"},
+      {"internalType": "int256[]", "name": "_interestDistribution", "type": "int256[]"},
+      {"internalType": "address", "name": "_paymentToken", "type": "address"}
+    ],
+    "name": "createRonda",
+    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  // Events
+  {
+    "anonymous": false,
+    "inputs": [
+      {"indexed": true, "internalType": "address", "name": "rondaAddress", "type": "address"},
+      {"indexed": true, "internalType": "address", "name": "creator", "type": "address"},
+      {"indexed": false, "internalType": "uint256", "name": "participantCount", "type": "uint256"},
+      {"indexed": false, "internalType": "uint256", "name": "milestoneCount", "type": "uint256"}
+    ],
+    "name": "RondaCreated",
+    "type": "event"
+  }
 ] as const;
 
 // Contract addresses

@@ -4,7 +4,6 @@ import { Shield, DollarSign } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
-
 import { Button } from '@/components/ui/button';
 import { VerificationStatus } from '@/components/wallet/verification-status';
 import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
@@ -40,18 +39,16 @@ export function JoinButton({ group, isDisabled }: JoinButtonProps) {
 
   // Calculate the contribution amount based on token type
   const getContributionAmount = () => {
-    if (group.isETH) {
-      return group.monthlyDepositFormatted?.toString() || "0.1";
-    } else {
-      // For ERC20 tokens, use the raw amount (e.g., 100 for 100 USDC)
-      return (group.monthlyDepositFormatted || 100).toString();
-    }
+    // Pass the raw contract value (string) to the join component
+    return group.monthlyDeposit || "100000000"; // Raw contract value
   };
 
-  // Get RONDA state name for display
+  // Get RONDA state name for display - using the same mapping as the working status functions
   const getStateName = (state: number | null) => {
+    if (state === null) { return 'Open'; }
+    
     const stateNames = ['Open', 'Running', 'Finalized', 'Aborted', 'Randomizing'];
-    return state !== null ? stateNames[state] || 'Unknown' : 'Unknown';
+    return stateNames[state] || 'Open';
   };
 
   // If user is already a member, show contribute button (only if RONDA is running)

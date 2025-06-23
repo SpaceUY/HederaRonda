@@ -1,14 +1,15 @@
 'use client';
 
-import { Calendar, Users, DollarSign, Clock, Eye, RefreshCw, AlertTriangle, Network, TrendingUp, Award } from 'lucide-react';
+import { Users, DollarSign, Clock, Eye, RefreshCw, AlertTriangle, Network, Award } from 'lucide-react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { RondaContractData } from '@/hooks/use-ronda-contracts';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { tokenFormatter } from '@/lib/token-formatter';
 
 interface ContractGroupsGridProps {
   rondas: RondaContractData[];
@@ -17,7 +18,77 @@ interface ContractGroupsGridProps {
   onRefetch: () => void;
 }
 
+interface FormattedAmounts {
+  [contractAddress: string]: {
+    monthlyDeposit: string;
+    entryFee: string;
+    totalContribution: string;
+    joinCost: string;
+  };
+}
+
 export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: ContractGroupsGridProps) {
+  const [formattedAmounts, setFormattedAmounts] = useState<FormattedAmounts>({});
+  const [isFormattingAmounts, setIsFormattingAmounts] = useState(false);
+
+  // Format amounts for all RONDAs
+  useEffect(() => {
+    const formatAllAmounts = async () => {
+      if (rondas.length === 0) {return;}
+
+      setIsFormattingAmounts(true);
+      const newFormattedAmounts: FormattedAmounts = {};
+
+      try {
+        await Promise.all(
+          rondas.map(async (ronda) => {
+            try {
+              const [monthlyDeposit, entryFee, totalContribution] = await Promise.all([
+                tokenFormatter.formatMonthlyDeposit(ronda.address, ronda.monthlyDeposit),
+                tokenFormatter.formatEntryFee(ronda.address),
+                tokenFormatter.formatTotalContribution(ronda.address, ronda.monthlyDeposit, ronda.maxParticipants),
+              ]);
+
+              // Calculate join cost (entry fee + monthly deposit)
+              const monthlyNumeric = await tokenFormatter.getNumericAmount(ronda.address, ronda.monthlyDeposit);
+              const entryFeeNumeric = ronda.entryFeeFormatted;
+              const totalJoinCost = monthlyNumeric + entryFeeNumeric;
+              
+              // Get token info for join cost formatting
+              const tokenInfo = await tokenFormatter.getPaymentTokenInfo(ronda.address);
+              const joinCostBigInt = BigInt(Math.floor(totalJoinCost * (10 ** tokenInfo.decimals)));
+              const joinCost = tokenFormatter.formatAmount(joinCostBigInt, tokenInfo.decimals, tokenInfo.symbol);
+
+              newFormattedAmounts[ronda.address] = {
+                monthlyDeposit,
+                entryFee,
+                totalContribution,
+                joinCost: entryFeeNumeric > 0 ? joinCost : monthlyDeposit,
+              };
+            } catch (error) {
+              console.error(`❌ Error formatting amounts for ${ronda.address}:`, error);
+              // Fallback formatting
+              newFormattedAmounts[ronda.address] = {
+                monthlyDeposit: `${ronda.monthlyDepositFormatted.toFixed(4)} MTK`,
+                entryFee: `${ronda.entryFeeFormatted.toFixed(4)} ETH`,
+                totalContribution: `${(ronda.monthlyDepositFormatted * ronda.maxParticipants).toFixed(4)} MTK`,
+                joinCost: `${(ronda.monthlyDepositFormatted + ronda.entryFeeFormatted).toFixed(4)} MTK`,
+              };
+            }
+          })
+        );
+
+        setFormattedAmounts(newFormattedAmounts);
+      } catch (error) {
+        console.error('❌ Error formatting amounts:', error);
+      } finally {
+        setIsFormattingAmounts(false);
+      }
+    };
+
+    formatAllAmounts();
+  }, [rondas]);
+
   const getStatusColor = (state: string) => {
     switch (state.toLowerCase()) {
       case 'open':
@@ -50,44 +121,6 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
       default:
         return state;
     }
-  };
-
-  const getStatusIcon = (state: string) => {
-    switch (state.toLowerCase()) {
-      case 'open':
-        return '🟢';
-      case 'running':
-        return '🟡';
-      case 'finalized':
-        return '✅';
-      case 'aborted':
-        return '❌';
-      case 'randomizing':
-        return '🔄';
-      default:
-        return '⚪';
-    }
-  };
-
-  const formatMonthlyAmount = (ronda: RondaContractData) => {
-    const amount = ronda.monthlyDepositFormatted;
-    const token = ronda.paymentToken === '0x0000000000000000000000000000000000000000' ? 'ETH' : 'USDC';
-    
-    if (amount < 0.001) {
-      return `${(amount * 1000).toFixed(2)} mETH`;
-    }
-    return `${amount.toFixed(3)} ${token}`;
-  };
-
-  const getJoinCost = (ronda: RondaContractData) => {
-    const entryFee = ronda.entryFeeFormatted;
-    const monthly = ronda.monthlyDepositFormatted;
-    const token = ronda.paymentToken === '0x0000000000000000000000000000000000000000' ? 'ETH' : 'USDC';
-    
-    if (entryFee > 0) {
-      return `${(entryFee + monthly).toFixed(3)} ${token}`;
-    }
-    return `${monthly.toFixed(3)} ${token}`;
   };
 
   if (error) {
@@ -197,11 +230,22 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
 
   return (
     <div className="space-y-6">
+      {/* Loading indicator for amount formatting */}
+      {isFormattingAmounts && (
+        <Alert>
+          <RefreshCw className="h-4 w-4 animate-spin" />
+          <AlertDescription>
+            Formatting token amounts from smart contracts...
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* RONDA Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {rondas.map((ronda, index) => {
           const availableSpots = ronda.maxParticipants - ronda.participantCount;
           const completionPercentage = (ronda.participantCount / ronda.maxParticipants) * 100;
+          const formatted = formattedAmounts[ronda.address];
           
           return (
             <Card key={ronda.address} className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col overflow-hidden">
@@ -261,7 +305,7 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                       <span>Monthly</span>
                     </div>
                     <div className="font-bold text-lg">
-                      {formatMonthlyAmount(ronda)}
+                      {formatted?.monthlyDeposit || `${ronda.monthlyDepositFormatted.toFixed(4)} MTK`}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       per member
@@ -292,37 +336,45 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                   </div>
                 </div>
 
-                {/* Basic Information */}
-                <div className="p-4 bg-gradient-to-r from-primary/5 to-success/5 rounded-lg border border-primary/20 flex-shrink-0">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Award className="h-4 w-4 text-primary" />
-                    <span className="font-medium text-sm">RONDA Details</span>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Monthly Deposit:</span>
-                      <span className="font-semibold">
-                        {formatMonthlyAmount(ronda)}
-                      </span>
+                {/* Basic Information - Only show for Open RONDAs */}
+                {ronda.state === 'Open' && (
+                  <div className="p-4 bg-gradient-to-r from-primary/5 to-success/5 rounded-lg border border-primary/20 flex-shrink-0">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Award className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-sm">RONDA Details</span>
                     </div>
-                    {availableSpots > 0 && (
+                    <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Available Spots:</span>
-                        <span className="font-semibold text-warning">
-                          {availableSpots} remaining
-                        </span>
-                      </div>
-                    )}
-                    {ronda.entryFeeFormatted > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Entry Fee:</span>
+                        <span className="text-muted-foreground">Monthly Deposit:</span>
                         <span className="font-semibold">
-                          {ronda.entryFeeFormatted.toFixed(3)} ETH
+                          {formatted?.monthlyDeposit || `${ronda.monthlyDepositFormatted.toFixed(4)} MTK`}
                         </span>
                       </div>
-                    )}
+                      {availableSpots > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Available Spots:</span>
+                          <span className="font-semibold text-warning">
+                            {availableSpots} remaining
+                          </span>
+                        </div>
+                      )}
+                      {ronda.entryFeeFormatted > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Entry Fee:</span>
+                          <span className="font-semibold">
+                            {formatted?.entryFee || `${ronda.entryFeeFormatted.toFixed(3)} ETH`}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Total Payout:</span>
+                        <span className="font-semibold text-success">
+                          {formatted?.totalContribution || `${(ronda.monthlyDepositFormatted * ronda.maxParticipants).toFixed(4)} MTK`}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Progress for Active RONDAs */}
                 {ronda.state === 'Running' && (
@@ -356,7 +408,7 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                     >
                       <Link href={`/group/${ronda.address}`}>
                         <DollarSign className="h-4 w-4 mr-2" />
-                        Join for {getJoinCost(ronda)}
+                        Join for {formatted?.joinCost || `${(ronda.monthlyDepositFormatted + ronda.entryFeeFormatted).toFixed(4)} MTK`}
                       </Link>
                     </Button>
                   ) : (
@@ -388,6 +440,7 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
         <div className="text-xs text-muted-foreground space-y-1">
           <div>Proxy Contract: 0xA2AC48Cf8113677F9D708fF91dfBB6464E386368</div>
           <div>Network: Sepolia Testnet • Live data from RONDA smart contracts</div>
+          <div>Token amounts dynamically formatted from payment token contracts</div>
         </div>
       </div>
     </div>
