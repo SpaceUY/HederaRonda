@@ -1,29 +1,37 @@
 'use client';
 
-import { 
-  Wallet, 
-  Loader2, 
-  CheckCircle, 
-  AlertTriangle, 
-  ExternalLink, 
+import {
+  Wallet,
+  Loader2,
+  CheckCircle,
+  AlertTriangle,
+  ExternalLink,
   RefreshCw,
   DollarSign,
   Zap,
   TrendingUp,
   Key,
   ArrowRight,
-  UserCheck
+  UserCheck,
+  Shield,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { useAccount, useChainId } from 'wagmi';
 
+import { PenaltyStatusBadge } from '@/components/penalty/penalty-status-badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { isCCIPSupported, getCCIPNetworkConfig } from '@/constants/ccip-config';
 import { useRoscaJoin } from '@/hooks/use-rosca-join';
-
+import { useTokenFormatter } from '@/hooks/use-token-formatter';
 
 interface JoinRoscaButtonProps {
   contributionAmount: string; // Amount in token units (e.g., "100" for 100 USDC)
@@ -36,16 +44,28 @@ interface JoinRoscaButtonProps {
 // Use dynamic network support instead of hardcoded value
 const BLOCK_EXPLORER_URL = 'https://sepolia.etherscan.io';
 
-export function JoinRoscaButton({ 
-  contributionAmount, 
-  roscaContractAddress, 
+export function JoinRoscaButton({
+  contributionAmount,
+  roscaContractAddress,
   onSuccess,
   disabled = false,
-  className 
+  className,
 }: JoinRoscaButtonProps) {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const [showDetails, setShowDetails] = useState(false);
+
+  // Use token formatter for proper amount display - pass the raw contract values
+  const {
+    monthlyDeposit: formattedMonthlyDeposit,
+    entryFee: formattedEntryFee,
+    totalContribution: formattedTotalContribution,
+    isLoading: isFormattingAmounts,
+  } = useTokenFormatter(
+    roscaContractAddress,
+    contributionAmount, // This should be the raw contract value
+    1 // For individual amounts
+  );
 
   const {
     step,
@@ -56,18 +76,29 @@ export function JoinRoscaButton({
     joinHash,
     reset,
     hasEnoughBalance,
+    currentAllowance,
     needsApproval,
     estimatedGas,
     estimatedGasCost,
     estimatedGasCostFormatted,
     isEstimatingGas,
+    gasPrice,
+    gasPriceGwei,
+    totalCostWithGas,
+    entryFee,
     entryFeeFormatted,
+    totalRequiredAmount,
     totalRequiredFormatted,
     isAlreadyMember,
-    isCheckingMembership
+    isCheckingMembership,
+    // Penalty check data
+    hasPenalties,
+    penaltyCount,
+    isPenaltyCheckLoading,
+    penaltyError,
   } = useRoscaJoin({
     contributionAmount,
-    roscaContractAddress
+    roscaContractAddress,
   });
 
   // Check if current network is supported using CCIP config
@@ -83,17 +114,28 @@ export function JoinRoscaButton({
   }, [step, onSuccess]);
 
   const getButtonText = (): string => {
-    if (!isConnected) {return 'Connect Wallet';}
-    if (isWrongNetwork) {
-      const supportedNetworks = Object.values({ 11155111: 'Sepolia', 43113: 'Avalanche Fuji' });
-      return `Switch to Supported Network (${supportedNetworks.join(', ')})`;
+    if (!isConnected) {
+      return 'Connect Wallet';
     }
-    if (isAlreadyMember) {return 'Already Joined RONDA';}
-    if (!hasEnoughBalance) {return `Insufficient Balance`;}
-    
+    if (isWrongNetwork) {
+      return 'Switch to Sepolia';
+    }
+    if (isPenaltyCheckLoading) {
+      return 'Checking Penalties...';
+    }
+    if (hasPenalties) {
+      return `Blocked: ${penaltyCount} Penalty Token${penaltyCount !== 1 ? 's' : ''}`;
+    }
+    if (isAlreadyMember) {
+      return 'Already Joined RONDA';
+    }
+    if (!hasEnoughBalance) {
+      return `Insufficient Balance`;
+    }
+
     switch (step) {
       case 'checking':
-        return 'Verifying Membership...';
+        return 'Verifying Eligibility...';
       case 'estimating':
         return 'Estimating Gas...';
       case 'approving':
@@ -110,20 +152,48 @@ export function JoinRoscaButton({
   };
 
   const getButtonIcon = () => {
-    if (isLoading || isCheckingMembership) {return <Loader2 className="h-4 w-4 animate-spin" />;}
-    if (step === 'success') {return <CheckCircle className="h-4 w-4" />;}
-    if (step === 'error') {return <RefreshCw className="h-4 w-4" />;}
-    if (step === 'checking') {return <UserCheck className="h-4 w-4" />;}
-    if (step === 'approving') {return <Key className="h-4 w-4" />;}
-    if (isAlreadyMember) {return <CheckCircle className="h-4 w-4" />;}
-    if (!isConnected || isWrongNetwork) {return <Wallet className="h-4 w-4" />;}
-    return needsApproval ? <Key className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />;
+    if (isLoading || isCheckingMembership || isPenaltyCheckLoading) {
+      return <Loader2 className="h-4 w-4 animate-spin" />;
+    }
+    if (step === 'success') {
+      return <CheckCircle className="h-4 w-4" />;
+    }
+    if (step === 'error') {
+      return <RefreshCw className="h-4 w-4" />;
+    }
+    if (step === 'checking') {
+      return <UserCheck className="h-4 w-4" />;
+    }
+    if (step === 'approving') {
+      return <Key className="h-4 w-4" />;
+    }
+    if (hasPenalties) {
+      return <AlertTriangle className="h-4 w-4" />;
+    }
+    if (isAlreadyMember) {
+      return <CheckCircle className="h-4 w-4" />;
+    }
+    if (!isConnected || isWrongNetwork) {
+      return <Wallet className="h-4 w-4" />;
+    }
+    return needsApproval ? (
+      <Key className="h-4 w-4" />
+    ) : (
+      <DollarSign className="h-4 w-4" />
+    );
   };
 
   const getStepDescription = (): string => {
+    if (isPenaltyCheckLoading) {
+      return 'Checking your wallet for penalty tokens...';
+    }
+    if (hasPenalties) {
+      return `You have ${penaltyCount} penalty token${penaltyCount !== 1 ? 's' : ''} and cannot join RONDAs`;
+    }
+
     switch (step) {
       case 'checking':
-        return 'Verifying your membership status in this RONDA...';
+        return 'Verifying your membership status and penalty tokens...';
       case 'estimating':
         return 'Calculating optimal gas fees for the transaction...';
       case 'approving':
@@ -138,28 +208,31 @@ export function JoinRoscaButton({
         if (isAlreadyMember) {
           return 'You are already a member of this RONDA';
         }
-        return needsApproval 
-          ? `Ready to approve tokens and join the RONDA with ${totalRequiredFormatted} tokens`
-          : `Ready to join the RONDA with ${totalRequiredFormatted} tokens`;
+        return needsApproval
+          ? `Ready to approve tokens and join the RONDA with ${formattedTotalContribution || totalRequiredFormatted}`
+          : `Ready to join the RONDA with ${formattedTotalContribution || totalRequiredFormatted}`;
     }
   };
 
   const handleClick = () => {
     if (step === 'error') {
       reset();
-    } else if (step === 'idle' && !isAlreadyMember) {
+    } else if (step === 'idle' && !isAlreadyMember && !hasPenalties) {
       executeJoinFlow();
     }
   };
 
-  const isButtonDisabled = disabled || 
-    isLoading || 
+  const isButtonDisabled =
+    disabled ||
+    isLoading ||
     isCheckingMembership ||
-    step === 'success' || 
-    !isConnected || 
-    isWrongNetwork || 
+    isPenaltyCheckLoading ||
+    step === 'success' ||
+    !isConnected ||
+    isWrongNetwork ||
     !hasEnoughBalance ||
-    isAlreadyMember;
+    isAlreadyMember ||
+    hasPenalties;
 
   return (
     <div className="space-y-4">
@@ -167,106 +240,193 @@ export function JoinRoscaButton({
       <Button
         onClick={handleClick}
         disabled={isButtonDisabled}
-        className={`w-full text-base font-semibold py-6 ${className}`}
-        variant={step === 'error' ? 'outline' : isAlreadyMember ? 'secondary' : 'default'}
+        className={`w-full py-6 text-base font-semibold ${className}`}
+        variant={
+          step === 'error'
+            ? 'outline'
+            : isAlreadyMember || hasPenalties
+              ? 'secondary'
+              : 'default'
+        }
       >
         {getButtonIcon()}
         <span className="ml-2">{getButtonText()}</span>
       </Button>
 
+      {/* Penalty Status Display */}
+      {(isPenaltyCheckLoading || hasPenalties || penaltyError) && (
+        <div className="space-y-2">
+          <PenaltyStatusBadge
+            hasPenalties={hasPenalties}
+            penaltyCount={penaltyCount}
+            isLoading={isPenaltyCheckLoading}
+            error={penaltyError || ''}
+            walletAddress={address || ''}
+          />
+
+          {hasPenalties && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                You cannot participate in rounds due to contract violations.
+                Please resolve your penalties before joining.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
+
       {isAlreadyMember && (
         <Alert>
           <CheckCircle className="h-4 w-4" />
           <AlertDescription>
-            You are already a member of this RONDA. You can view your participation status and make contributions as scheduled.
+            You are already a member of this RONDA. You can view your
+            participation status and make contributions as scheduled.
           </AlertDescription>
         </Alert>
       )}
 
-      {!isAlreadyMember && parseFloat(entryFeeFormatted) > 0 ? (
+      {!isAlreadyMember &&
+      !hasPenalties &&
+      parseFloat(entryFeeFormatted) > 0 ? (
         <Card className="border-l-4 border-l-warning">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-4 w-4 text-warning" />
-                <span className="text-sm font-medium text-warning">Entry Fee Required</span>
+                <span className="text-sm font-medium text-warning">
+                  Entry Fee Required
+                </span>
               </div>
-              <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20">
-                {entryFeeFormatted} tokens
+              <Badge
+                variant="outline"
+                className="border-warning/20 bg-warning/10 text-warning"
+              >
+                {isFormattingAmounts ? (
+                  <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                ) : (
+                  formattedEntryFee || `${entryFeeFormatted} tokens`
+                )}
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Monthly Contribution:</span>
-                <div className="font-medium">{contributionAmount} tokens</div>
+                <span className="text-muted-foreground">
+                  Monthly Contribution:
+                </span>
+                <div className="font-medium">
+                  {isFormattingAmounts ? (
+                    <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                  ) : (
+                    formattedMonthlyDeposit || `${contributionAmount} tokens`
+                  )}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Entry Fee:</span>
-                <div className="font-medium">{entryFeeFormatted} tokens</div>
+                <div className="font-medium">
+                  {isFormattingAmounts ? (
+                    <div className="h-4 w-16 animate-pulse rounded bg-muted" />
+                  ) : (
+                    formattedEntryFee || `${entryFeeFormatted} tokens`
+                  )}
+                </div>
               </div>
             </div>
-            <div className="mt-2 pt-2 border-t">
+            <div className="mt-2 border-t pt-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Total Required:</span>
                 <span className="font-semibold text-warning">
-                  {totalRequiredFormatted} tokens
+                  {isFormattingAmounts ? (
+                    <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                  ) : (
+                    formattedTotalContribution ||
+                    `${totalRequiredFormatted} tokens`
+                  )}
                 </span>
               </div>
             </div>
           </CardContent>
         </Card>
-      ): null}
+      ) : null}
 
-      {!isAlreadyMember && estimatedGas && estimatedGasCostFormatted && !isEstimatingGas ? (
+      {!isAlreadyMember &&
+      !hasPenalties &&
+      estimatedGas &&
+      estimatedGasCostFormatted &&
+      !isEstimatingGas ? (
         <Card className="border-l-4 border-l-success">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Zap className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium text-success">Gas Estimated</span>
+                <span className="text-sm font-medium text-success">
+                  Gas Estimated
+                </span>
               </div>
-              <Badge variant="outline" className="bg-success/10 text-success border-success/20">
+              <Badge
+                variant="outline"
+                className="border-success/20 bg-success/10 text-success"
+              >
                 {estimatedGas.toLocaleString()} gas
               </Badge>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Token Amount:</span>
-                <div className="font-medium">{totalRequiredFormatted} tokens</div>
+                <div className="font-medium">
+                  {isFormattingAmounts ? (
+                    <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                  ) : (
+                    formattedTotalContribution ||
+                    `${totalRequiredFormatted} tokens`
+                  )}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Est. Gas Cost:</span>
-                <div className="font-medium">{parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH</div>
+                <div className="font-medium">
+                  {parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH
+                </div>
               </div>
             </div>
             {needsApproval && (
-              <div className="mt-2 pt-2 border-t">
+              <div className="mt-2 border-t pt-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Steps Required:</span>
-                  <span className="font-semibold">
-                    1. Approve → 2. Join
-                  </span>
+                  <span className="font-semibold">1. Approve → 2. Join</span>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
-      ): null}
+      ) : null}
 
       {/* Status Information */}
-      {(step !== 'idle' || !hasEnoughBalance || isWrongNetwork || isEstimatingGas || isCheckingMembership || needsApproval || isAlreadyMember) && (
+      {(step !== 'idle' ||
+        !hasEnoughBalance ||
+        isWrongNetwork ||
+        isEstimatingGas ||
+        isCheckingMembership ||
+        isPenaltyCheckLoading ||
+        needsApproval ||
+        isAlreadyMember ||
+        hasPenalties) && (
         <Card className="border-l-4 border-l-primary">
           <CardContent className="p-4">
             <div className="space-y-3">
               {/* Step Status */}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Status:</span>
-                <Badge 
+                <Badge
                   variant={
-                    step === 'success' ? 'default' : 
-                    step === 'error' ? 'destructive' : 
-                    isAlreadyMember ? 'secondary' :
-                    'secondary'
+                    step === 'success'
+                      ? 'default'
+                      : step === 'error'
+                        ? 'destructive'
+                        : isAlreadyMember || hasPenalties
+                          ? 'secondary'
+                          : 'secondary'
                   }
                   className="gap-1"
                 >
@@ -274,12 +434,25 @@ export function JoinRoscaButton({
                   {step === 'error' && <AlertTriangle className="h-3 w-3" />}
                   {step === 'checking' && <UserCheck className="h-3 w-3" />}
                   {step === 'approving' && <Key className="h-3 w-3" />}
-                  {(isLoading || isEstimatingGas || isCheckingMembership) && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {(isLoading ||
+                    isEstimatingGas ||
+                    isCheckingMembership ||
+                    isPenaltyCheckLoading) && (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  )}
                   {isAlreadyMember && <CheckCircle className="h-3 w-3" />}
-                  {isAlreadyMember ? 'Already Member' : 
-                   isEstimatingGas ? 'Estimating' : 
-                   isCheckingMembership ? 'Checking' :
-                   step.charAt(0).toUpperCase() + step.slice(1)}
+                  {hasPenalties && <AlertTriangle className="h-3 w-3" />}
+                  {hasPenalties
+                    ? 'Blocked'
+                    : isAlreadyMember
+                      ? 'Already Member'
+                      : isPenaltyCheckLoading
+                        ? 'Checking'
+                        : isEstimatingGas
+                          ? 'Estimating'
+                          : isCheckingMembership
+                            ? 'Verifying'
+                            : step.charAt(0).toUpperCase() + step.slice(1)}
                 </Badge>
               </div>
 
@@ -288,68 +461,105 @@ export function JoinRoscaButton({
                 {getStepDescription()}
               </p>
 
-              {/* Membership Verification for ERC20 */}
-              {step === 'checking' && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <UserCheck className="h-4 w-4 text-info animate-pulse" />
-                    <span className="text-sm font-medium text-info">Membership Verification</span>
+              {/* Penalty Check Progress */}
+              {isPenaltyCheckLoading && (
+                <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                  <div className="mb-2 flex items-center space-x-2">
+                    <Shield className="h-4 w-4 animate-pulse text-info" />
+                    <span className="text-sm font-medium text-info">
+                      Penalty Token Verification
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Checking if you are already a member of this RONDA to prevent duplicate joins...
+                    Checking your wallet for penalty tokens before allowing
+                    participation...
+                  </p>
+                </div>
+              )}
+
+              {/* Membership Verification for ERC20 */}
+              {step === 'checking' && !isPenaltyCheckLoading && (
+                <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                  <div className="mb-2 flex items-center space-x-2">
+                    <UserCheck className="h-4 w-4 animate-pulse text-info" />
+                    <span className="text-sm font-medium text-info">
+                      Membership Verification
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Checking if you are already a member of this RONDA to
+                    prevent duplicate joins...
                   </p>
                 </div>
               )}
 
               {/* Two-Step Process for ERC20 */}
-              {!isAlreadyMember && needsApproval && step === 'idle' && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <ArrowRight className="h-4 w-4 text-info" />
-                    <span className="text-sm font-medium text-info">Two-Step Process</span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">1</span>
-                      <span>Approve tokens for the RONDA contract</span>
+              {!isAlreadyMember &&
+                !hasPenalties &&
+                needsApproval &&
+                step === 'idle' && (
+                  <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                    <div className="mb-2 flex items-center space-x-2">
+                      <ArrowRight className="h-4 w-4 text-info" />
+                      <span className="text-sm font-medium text-info">
+                        Two-Step Process
+                      </span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">2</span>
-                      <span>Join the RONDA with approved tokens</span>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div className="flex items-center space-x-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-info/20 text-xs font-bold text-info">
+                          1
+                        </span>
+                        <span>Approve tokens for the RONDA contract</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-info/20 text-xs font-bold text-info">
+                          2
+                        </span>
+                        <span>Join the RONDA with approved tokens</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Gas Estimation Progress */}
               {isEstimatingGas && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-info animate-pulse" />
-                    <span className="text-sm font-medium text-info">Calculating Gas Fees</span>
+                <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                  <div className="mb-2 flex items-center space-x-2">
+                    <TrendingUp className="h-4 w-4 animate-pulse text-info" />
+                    <span className="text-sm font-medium text-info">
+                      Calculating Gas Fees
+                    </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Analyzing current network conditions to estimate optimal gas price and limit...
+                    Analyzing current network conditions to estimate optimal gas
+                    price and limit...
                   </p>
                 </div>
               )}
 
               {/* Balance Check */}
-              {!isAlreadyMember && !hasEnoughBalance && !isEstimatingGas && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    Insufficient token balance. You need {totalRequiredFormatted} tokens plus ETH for gas fees.
-                  </AlertDescription>
-                </Alert>
-              )}
+              {!isAlreadyMember &&
+                !hasPenalties &&
+                !hasEnoughBalance &&
+                !isEstimatingGas && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Insufficient token balance. You need{' '}
+                      {formattedTotalContribution || totalRequiredFormatted}{' '}
+                      plus ETH for gas fees.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
               {/* Network Check */}
               {isWrongNetwork && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    Please switch to a supported network: Sepolia or Avalanche Fuji testnet to join this RONDA.
+                    Please switch to a supported network: Sepolia or Avalanche
+                    Fuji testnet to join this RONDA.
                   </AlertDescription>
                 </Alert>
               )}
@@ -370,29 +580,30 @@ export function JoinRoscaButton({
       {(approvalHash || joinHash) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <ExternalLink className="h-4 w-4" />
               Transaction Details
             </CardTitle>
             <CardDescription>
-              View your transactions on {currentNetworkConfig?.name || 'block'} explorer
+              View your transactions on {currentNetworkConfig?.name || 'block'}{' '}
+              explorer
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Approval Transaction */}
             {approvalHash && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
                 <div className="space-y-1">
-                  <div className="font-medium text-sm flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
                     <Key className="h-3 w-3" />
                     Token Approval
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono">
+                  <div className="font-mono text-xs text-muted-foreground">
                     {approvalHash.slice(0, 10)}...{approvalHash.slice(-8)}
                   </div>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <a 
+                  <a
                     href={`${BLOCK_EXPLORER_URL}/tx/${approvalHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -405,23 +616,23 @@ export function JoinRoscaButton({
 
             {/* Join Transaction */}
             {joinHash && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
                 <div className="space-y-1">
-                  <div className="font-medium text-sm flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
                     <DollarSign className="h-3 w-3" />
                     Join RONDA
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono">
+                  <div className="font-mono text-xs text-muted-foreground">
                     {joinHash.slice(0, 10)}...{joinHash.slice(-8)}
                   </div>
                   {estimatedGas ? (
                     <div className="text-xs text-muted-foreground">
                       Gas Used: {estimatedGas.toLocaleString()} units
                     </div>
-                  ): null}
+                  ) : null}
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <a 
+                  <a
                     href={`${BLOCK_EXPLORER_URL}/tx/${joinHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -436,7 +647,7 @@ export function JoinRoscaButton({
       )}
 
       {/* Additional Details Toggle */}
-      {!isAlreadyMember && (
+      {!isAlreadyMember && !hasPenalties && (
         <Button
           variant="ghost"
           size="sm"
@@ -448,7 +659,7 @@ export function JoinRoscaButton({
       )}
 
       {/* Technical Details */}
-      {!isAlreadyMember && showDetails && (
+      {!isAlreadyMember && !hasPenalties && showDetails && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Technical Information</CardTitle>
@@ -456,14 +667,28 @@ export function JoinRoscaButton({
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">Membership Status:</span>
+                <span className="text-muted-foreground">Penalty Status:</span>
+                <div className="font-medium">
+                  {isPenaltyCheckLoading
+                    ? '🔄 Checking...'
+                    : hasPenalties
+                      ? `❌ ${penaltyCount} Penalties`
+                      : '✅ No Penalties'}
+                </div>
+              </div>
+              <div>
+                <span className="text-muted-foreground">
+                  Membership Status:
+                </span>
                 <div className="font-medium">
                   {isAlreadyMember ? '✅ Already Member' : '❌ Not Member'}
                 </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Total Required:</span>
-                <div className="font-medium">{totalRequiredFormatted} tokens</div>
+                <div className="font-medium">
+                  {formattedTotalContribution || totalRequiredFormatted}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Balance Check:</span>
@@ -485,75 +710,66 @@ export function JoinRoscaButton({
 
             {/* Entry Fee Breakdown */}
             {parseFloat(entryFeeFormatted) > 0 ? (
-              <div className="pt-3 border-t">
-                <h4 className="font-medium text-sm mb-2">Cost Breakdown</h4>
+              <div className="border-t pt-3">
+                <h4 className="mb-2 text-sm font-medium">Cost Breakdown</h4>
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
-                    <span className="text-muted-foreground">Monthly Contribution:</span>
-                    <div className="font-mono">{contributionAmount} tokens</div>
+                    <span className="text-muted-foreground">
+                      Monthly Contribution:
+                    </span>
+                    <div className="font-mono">
+                      {formattedMonthlyDeposit ||
+                        `${contributionAmount} tokens`}
+                    </div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Entry Fee:</span>
-                    <div className="font-mono">{entryFeeFormatted} tokens</div>
+                    <div className="font-mono">
+                      {formattedEntryFee || `${entryFeeFormatted} tokens`}
+                    </div>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Total Required:</span>
-                    <div className="font-mono font-semibold">{totalRequiredFormatted} tokens</div>
+                    <span className="text-muted-foreground">
+                      Total Required:
+                    </span>
+                    <div className="font-mono font-semibold">
+                      {formattedTotalContribution || totalRequiredFormatted}
+                    </div>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Gas Cost:</span>
                     <div className="font-mono">
-                      {estimatedGasCostFormatted ? 
-                        `${parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH` : 
-                        'Estimating...'
-                      }
+                      {estimatedGasCostFormatted
+                        ? `${parseFloat(estimatedGasCostFormatted).toFixed(
+                            6
+                          )} ETH`
+                        : 'Estimating...'}
                     </div>
                   </div>
                 </div>
               </div>
-            ): null}
+            ) : null}
 
-            {/* Gas Information */}
-            {estimatedGas && estimatedGasCostFormatted ? (
-              <div className="pt-3 border-t">
-                <h4 className="font-medium text-sm mb-2">Gas Estimation</h4>
-                <div className="grid grid-cols-2 gap-4 text-xs">
-                  <div>
-                    <span className="text-muted-foreground">Gas Limit:</span>
-                    <div className="font-mono">{estimatedGas.toLocaleString()} units</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Est. Gas Cost:</span>
-                    <div className="font-mono">{parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Gas Buffer:</span>
-                    <div className="font-mono">+20% safety margin</div>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Network:</span>
-                    <div className="font-mono">
-                      {isNetworkSupported ? `✅ ${currentNetworkConfig?.name || 'Supported'}` : '❌ Not Supported'}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ): null}
-
-            <div className="pt-3 border-t">
+            <div className="border-t pt-3">
               <div className="space-y-2 text-xs">
                 <div>
                   <span className="text-muted-foreground">RONDA Contract:</span>
-                  <div className="font-mono break-all">{roscaContractAddress}</div>
+                  <div className="break-all font-mono">
+                    {roscaContractAddress}
+                  </div>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Payment Token:</span>
                   <div className="font-mono">ERC20 (approval required)</div>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Transaction Steps:</span>
+                  <span className="text-muted-foreground">
+                    Transaction Steps:
+                  </span>
                   <div className="font-mono">
-                    {needsApproval ? '1. Check → 2. Approve → 3. Join' : '1. Check → 2. Join'}
+                    {needsApproval
+                      ? '1. Check Penalties → 2. Approve → 3. Join'
+                      : '1. Check Penalties → 2. Join'}
                   </div>
                 </div>
               </div>
@@ -566,35 +782,51 @@ export function JoinRoscaButton({
       {step === 'success' && (
         <Card className="border-success/20 bg-success/5">
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2 mb-3">
+            <div className="mb-3 flex items-center space-x-2">
               <CheckCircle className="h-5 w-5 text-success" />
-              <span className="font-medium text-success">Successfully Joined RONDA!</span>
+              <span className="font-medium text-success">
+                Successfully Joined RONDA!
+              </span>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
-              You are now a member of this RONDA. Your tokens have been transferred to the contract.
+            <p className="mb-4 text-sm text-muted-foreground">
+              You are now a member of this RONDA. Your tokens have been
+              transferred to the contract.
             </p>
-            <div className="space-y-2 text-xs text-muted-foreground mb-4">
-              <div>Total tokens sent: {totalRequiredFormatted}</div>
+            <div className="mb-4 space-y-2 text-xs text-muted-foreground">
+              <div>
+                Total tokens sent:{' '}
+                {formattedTotalContribution || totalRequiredFormatted}
+              </div>
               {parseFloat(entryFeeFormatted) > 0 && (
-                <div>Entry fee: {entryFeeFormatted} tokens</div>
+                <div>
+                  Entry fee:{' '}
+                  {formattedEntryFee || `${entryFeeFormatted} tokens`}
+                </div>
               )}
               {estimatedGasCostFormatted ? (
-                <div>Gas used: {parseFloat(estimatedGasCostFormatted).toFixed(6)} ETH</div>
-              ): null}
+                <div>
+                  Gas used: {parseFloat(estimatedGasCostFormatted).toFixed(6)}{' '}
+                  ETH
+                </div>
+              ) : null}
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                <RefreshCw className="h-3 w-3 mr-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.reload()}
+              >
+                <RefreshCw className="mr-1 h-3 w-3" />
                 Refresh Page
               </Button>
               {joinHash && (
                 <Button variant="outline" size="sm" asChild>
-                  <a 
+                  <a
                     href={`${BLOCK_EXPLORER_URL}/tx/${joinHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <ExternalLink className="h-3 w-3 mr-1" />
+                    <ExternalLink className="mr-1 h-3 w-3" />
                     View Transaction
                   </a>
                 </Button>
