@@ -2,11 +2,20 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { parseEther, formatEther, erc20Abi } from 'viem';
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, usePublicClient, useReadContract } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useBalance, usePublicClient, useReadContract, useChainId } from 'wagmi';
 
-import { RONDA_ABI } from '@/lib/contracts';
+import { useCCIP } from './use-ccip';
+import { useCCIPApproval } from './use-ccip-approval';
+
+import { NETWORK_CONFIG, RONDA_ABI } from '@/lib/contracts';
+import { getContractJoinConfig } from '@/utils/contract-utils';
 
 export type JoinStep = 'idle' | 'checking' | 'estimating' | 'approving' | 'joining' | 'success' | 'error';
+
+interface UseRoscaJoinParams {
+  contributionAmount: string; // Amount in token units (e.g., "100" for 100 USDC)
+  roscaContractAddress: string;
+}
 
 interface UseRoscaJoinReturn {
   step: JoinStep;
@@ -37,19 +46,25 @@ interface UseRoscaJoinReturn {
   // Membership verification
   isAlreadyMember: boolean;
   isCheckingMembership: boolean;
-}
-
-interface UseRoscaJoinParams {
-  contributionAmount: string; // Amount in token units (e.g., "100" for 100 USDC)
-  roscaContractAddress: string;
+  // Cross-chain data
+  isCrossChain: boolean;
+  userChainId: number;
+  targetChainId: number;
+  contractAddress: string;
+  ccipSupported: boolean;
+  // CCIP data
+  ccipFee: bigint | null;
+  isEstimatingCCIPFee: boolean;
+  needsCCIPApproval: boolean;
 }
 
 export function useRoscaJoin({ 
   contributionAmount, 
-  roscaContractAddress 
+  roscaContractAddress
 }: UseRoscaJoinParams): UseRoscaJoinReturn {
   const { address } = useAccount();
   const publicClient = usePublicClient();
+  const userChainId = useChainId();
   const [step, setStep] = useState<JoinStep>('idle');
   const [error, setError] = useState<string | null>(null);
   const [approvalHash, setApprovalHash] = useState<string | null>(null);
@@ -60,11 +75,12 @@ export function useRoscaJoin({
   const [isEstimatingGas, setIsEstimatingGas] = useState(false);
   const [isCheckingMembership, setIsCheckingMembership] = useState(false);
 
-  // Read contract data
+  // Read contract data - always read from target Ronda contract
   const { data: paymentToken } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'paymentToken',
+    chainId: 11155111, // Sepolia
     query: { enabled: !!roscaContractAddress }
   });
 
@@ -72,6 +88,7 @@ export function useRoscaJoin({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'entryFee',
+    chainId: 11155111, // Sepolia
     query: { enabled: !!roscaContractAddress }
   });
 
@@ -79,15 +96,17 @@ export function useRoscaJoin({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'monthlyDeposit',
+    chainId: 11155111, // Sepolia
     query: { enabled: !!roscaContractAddress }
   });
 
-  // Check if user is already a member
+  // Check if user is already a member - always check on target contract
   const { data: membershipData, isLoading: membershipLoading } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'hasParticipantJoined',
     args: [address!],
+    chainId: 11155111, // Sepolia
     query: { enabled: !!address && !!roscaContractAddress }
   });
 
@@ -105,6 +124,44 @@ export function useRoscaJoin({
 
   // Total required amount (entry fee + monthly deposit)
   const totalRequiredAmount = entryFee + monthlyDeposit;
+
+  const targetChainId = NETWORK_CONFIG.SEPOLIA.chainId; // Sepolia
+  const { 
+    isCrossChain, 
+    ccipSupported, 
+    ccipFee, 
+    isEstimatingCCIPFee, 
+    needsCCIPApproval, 
+    contractAddress, 
+    networkConfig 
+  } = useCCIP({
+    targetChainId,
+    targetContractAddress: roscaContractAddress,
+    amount: totalRequiredAmount,
+  });
+
+  const { 
+    approveCCIP, 
+    isApprovalPending: isCCIPApprovalPending, 
+    isApprovalConfirming: isCCIPApprovalConfirming, 
+    isApprovalConfirmed: isCCIPApprovalConfirmed,
+    approvalError: ccipApprovalError,
+    approvalTxHash: ccipApprovalTxHash,
+    resetApproval: resetCCIPApproval
+  } = useCCIPApproval({
+    userChainId,
+    amount: totalRequiredAmount
+  });
+
+  // Get contract configuration using utility function
+  const contractJoinConfig = getContractJoinConfig(
+    userChainId,
+    targetChainId,
+    roscaContractAddress,
+    contractAddress,
+    paymentToken || '0x0000000000000000000000000000000000000000',
+    totalRequiredAmount
+  );
 
   // Check balance (ETH or ERC20)
   const { data: ethBalanceData } = useBalance({
@@ -183,7 +240,7 @@ export function useRoscaJoin({
     hash: joinTxHash,
   });
 
-  const isLoading = isApprovalPending || isApprovalConfirming || isJoinPending || isJoinConfirming || isEstimatingGas || isCheckingMembership || membershipLoading;
+  const isLoading = isApprovalPending || isApprovalConfirming || isJoinPending || isJoinConfirming || isEstimatingGas || isEstimatingCCIPFee || isCCIPApprovalPending || isCCIPApprovalConfirming || isCheckingMembership || membershipLoading;
 
   // Helper function to decode contract errors
   const decodeContractError = useCallback((err: any): string => {
@@ -278,7 +335,6 @@ export function useRoscaJoin({
 
       // Get current gas price
       const currentGasPrice = await publicClient.getGasPrice();
-      setGasPrice(currentGasPrice);
       
       console.log('📊 Current gas price:', {
         gasPrice: currentGasPrice.toString(),
@@ -388,7 +444,8 @@ export function useRoscaJoin({
     setGasPrice(null);
     resetApproval();
     resetJoin();
-  }, [resetApproval, resetJoin]);
+    resetCCIPApproval();
+  }, [resetApproval, resetJoin, resetCCIPApproval]);
 
   const executeJoinFlow = useCallback(async () => {
     if (!address) {
@@ -440,7 +497,7 @@ export function useRoscaJoin({
       }
 
       // Step 1: Approve tokens if needed (ERC20 only)
-      if (needsApproval) {
+      if (!isCrossChain && needsApproval) {
         setStep('approving');
         
         console.log('🔐 Approving ERC20 tokens:', {
@@ -457,7 +514,21 @@ export function useRoscaJoin({
           args: [roscaContractAddress as `0x${string}`, totalRequiredAmount],
         });
 
-        return; // Wait for approval to complete
+        return; 
+      }
+
+      // Step 1.5: Check CCIP approval if cross-chain
+      if (isCrossChain && needsCCIPApproval) {
+        setStep('approving');
+        
+        console.log('🔐 Approving LINK tokens for CCIP:', {
+          token: networkConfig?.linkTokenAddress,
+          spender: networkConfig?.routerAddress,
+          amount: totalRequiredAmount.toString(),
+        });
+
+        approveCCIP(totalRequiredAmount);
+        return; 
       }
       
       // Step 2: Join RONDA
@@ -471,18 +542,24 @@ export function useRoscaJoin({
         isETH,
         paymentToken,
         entryFee: entryFeeFormatted,
-        estimatedGas: estimatedGas?.toString()
+        estimatedGas: estimatedGas?.toString(),
+        isCrossChain,
+        contractAddress: contractJoinConfig.address,
+        contractAbi: isCrossChain ? 'RondaSender' : 'Ronda'
       });
 
       const gasConfig = estimatedGas ? { gas: estimatedGas } : {};
+
+      console.log('joinConfig', contractJoinConfig);
       
-      writeJoin({
-        address: roscaContractAddress as `0x${string}`,
-        abi: RONDA_ABI,
-        functionName: 'joinRonda',
-        value: isETH ? totalRequiredAmount : 0n, // Send ETH only if using ETH
-        ...gasConfig
-      });
+      // writeJoin({
+      //   address: contractJoinConfig.address as `0x${string}`,
+      //   abi: contractJoinConfig.abi,
+      //   functionName: contractJoinConfig.functionName,
+      //   args: contractJoinConfig.args,
+      //   value: isETH ? totalRequiredAmount : 0n, // Send ETH only if using ETH
+      //   ...gasConfig
+      // });
 
     } catch (err: any) {
       console.error('❌ Error in join flow:', err);
@@ -506,20 +583,24 @@ export function useRoscaJoin({
     estimateGas,
     writeApproval,
     writeJoin,
-    decodeContractError
+    decodeContractError,
+    isCrossChain,
+    contractJoinConfig,
+    RONDA_ABI
   ]);
 
   // Handle approval transaction submission
   useEffect(() => {
-    if (approvalTxHash) {
-      setApprovalHash(approvalTxHash);
-      console.log('📋 Approval transaction submitted:', approvalTxHash);
+    if (approvalTxHash || ccipApprovalTxHash) {
+      const hash = approvalTxHash || ccipApprovalTxHash;
+      setApprovalHash(hash!);
+      console.log('📋 Approval transaction submitted:', hash);
     }
-  }, [approvalTxHash]);
+  }, [approvalTxHash, ccipApprovalTxHash]);
 
   // Handle approval success - proceed to join
   useEffect(() => {
-    if (isApprovalConfirmed && step === 'approving') {
+    if ((isApprovalConfirmed || isCCIPApprovalConfirmed) && step === 'approving') {
       console.log('✅ Token approval confirmed, proceeding to join...');
       
       // Proceed to join step
@@ -528,14 +609,15 @@ export function useRoscaJoin({
       const gasConfig = estimatedGas ? { gas: estimatedGas } : {};
       
       writeJoin({
-        address: roscaContractAddress as `0x${string}`,
-        abi: RONDA_ABI,
-        functionName: 'joinRonda',
+        address: contractJoinConfig.address as `0x${string}`,
+        abi: contractJoinConfig.abi,
+        functionName: contractJoinConfig.functionName,
+        args: contractJoinConfig.args,
         value: isETH ? totalRequiredAmount : 0n,
         ...gasConfig
       });
     }
-  }, [isApprovalConfirmed, step, estimatedGas, roscaContractAddress, totalRequiredAmount, isETH, writeJoin]);
+  }, [isApprovalConfirmed, isCCIPApprovalConfirmed, step, estimatedGas, contractJoinConfig, isETH, writeJoin, totalRequiredAmount]);
 
   // Handle join transaction submission
   useEffect(() => {
@@ -555,7 +637,7 @@ export function useRoscaJoin({
 
   // Handle errors with enhanced decoding
   useEffect(() => {
-    const currentError = approvalError || joinError || approvalReceiptError || joinReceiptError;
+    const currentError = approvalError || joinError || approvalReceiptError || joinReceiptError || ccipApprovalError;
     if (currentError && step !== 'error') {
       console.error('❌ Transaction error:', currentError);
       
@@ -565,7 +647,7 @@ export function useRoscaJoin({
       setError(decodedError);
       setStep('error');
     }
-  }, [approvalError, joinError, approvalReceiptError, joinReceiptError, step, decodeContractError]);
+  }, [approvalError, joinError, approvalReceiptError, joinReceiptError, ccipApprovalError, step, decodeContractError]);
 
   return {
     step,
@@ -590,6 +672,14 @@ export function useRoscaJoin({
     totalRequiredAmount,
     totalRequiredFormatted,
     isAlreadyMember,
-    isCheckingMembership
+    isCheckingMembership,
+    isCrossChain,
+    userChainId,
+    targetChainId,
+    contractAddress,
+    ccipSupported,
+    ccipFee,
+    isEstimatingCCIPFee,  
+    needsCCIPApproval
   };
 }

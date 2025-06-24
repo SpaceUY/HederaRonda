@@ -8,8 +8,6 @@ import {
   ExternalLink, 
   RefreshCw,
   DollarSign,
-  Shield,
-  Clock,
   Zap,
   TrendingUp,
   Key,
@@ -17,14 +15,14 @@ import {
   UserCheck
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { formatEther } from 'viem';
 import { useAccount, useChainId } from 'wagmi';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRoscaJoin, JoinStep } from '@/hooks/use-rosca-join';
+import { isCCIPSupported, getCCIPNetworkConfig } from '@/constants/ccip-config';
+import { useRoscaJoin } from '@/hooks/use-rosca-join';
 
 
 interface JoinRoscaButtonProps {
@@ -35,7 +33,7 @@ interface JoinRoscaButtonProps {
   className?: string;
 }
 
-const SEPOLIA_CHAIN_ID = 11155111;
+// Use dynamic network support instead of hardcoded value
 const BLOCK_EXPLORER_URL = 'https://sepolia.etherscan.io';
 
 export function JoinRoscaButton({ 
@@ -72,7 +70,10 @@ export function JoinRoscaButton({
     roscaContractAddress
   });
 
-  const isWrongNetwork = chainId !== SEPOLIA_CHAIN_ID;
+  // Check if current network is supported using CCIP config
+  const isNetworkSupported = chainId ? isCCIPSupported(chainId) : false;
+  const currentNetworkConfig = chainId ? getCCIPNetworkConfig(chainId) : null;
+  const isWrongNetwork = !isNetworkSupported;
 
   // Handle success callback
   React.useEffect(() => {
@@ -83,7 +84,10 @@ export function JoinRoscaButton({
 
   const getButtonText = (): string => {
     if (!isConnected) {return 'Connect Wallet';}
-    if (isWrongNetwork) {return 'Switch to Sepolia';}
+    if (isWrongNetwork) {
+      const supportedNetworks = Object.values({ 11155111: 'Sepolia', 43113: 'Avalanche Fuji' });
+      return `Switch to Supported Network (${supportedNetworks.join(', ')})`;
+    }
     if (isAlreadyMember) {return 'Already Joined RONDA';}
     if (!hasEnoughBalance) {return `Insufficient Balance`;}
     
@@ -345,7 +349,7 @@ export function JoinRoscaButton({
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    Please switch to Sepolia testnet to join this RONDA.
+                    Please switch to a supported network: Sepolia or Avalanche Fuji testnet to join this RONDA.
                   </AlertDescription>
                 </Alert>
               )}
@@ -371,7 +375,7 @@ export function JoinRoscaButton({
               Transaction Details
             </CardTitle>
             <CardDescription>
-              View your transactions on Sepolia block explorer
+              View your transactions on {currentNetworkConfig?.name || 'block'} explorer
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -529,7 +533,7 @@ export function JoinRoscaButton({
                   <div>
                     <span className="text-muted-foreground">Network:</span>
                     <div className="font-mono">
-                      {chainId === SEPOLIA_CHAIN_ID ? '✅ Sepolia' : '❌ Wrong Network'}
+                      {isNetworkSupported ? `✅ ${currentNetworkConfig?.name || 'Supported'}` : '❌ Not Supported'}
                     </div>
                   </div>
                 </div>

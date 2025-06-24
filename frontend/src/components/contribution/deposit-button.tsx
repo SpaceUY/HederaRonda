@@ -21,7 +21,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { isCCIPSupported, getCCIPNetworkConfig, SUPPORTED_NETWORKS } from '@/constants/ccip-config';
 import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
+
 interface DepositButtonProps {
   roscaContractAddress: string;
   milestoneIndex?: number;
@@ -30,7 +32,7 @@ interface DepositButtonProps {
   className?: string;
 }
 
-const SEPOLIA_CHAIN_ID = 11155111;
+// Use the default network from CCIP config instead of hardcoded value
 const BLOCK_EXPLORER_URL = 'https://sepolia.etherscan.io';
 
 export function DepositButton({ 
@@ -70,7 +72,10 @@ export function DepositButton({
     roscaContractAddress
   });
 
-  const isWrongNetwork = chainId !== SEPOLIA_CHAIN_ID;
+  // Check if current network is supported using CCIP config
+  const isNetworkSupported = chainId ? isCCIPSupported(chainId) : false;
+  const currentNetworkConfig = chainId ? getCCIPNetworkConfig(chainId) : null;
+  const isWrongNetwork = !isNetworkSupported;
 
   // Handle success callback
   React.useEffect(() => {
@@ -81,7 +86,9 @@ export function DepositButton({
 
   const getButtonText = (): string => {
     if (!isConnected) {return 'Connect Wallet';}
-    if (isWrongNetwork) {return 'Switch to Sepolia';}
+    if (isWrongNetwork) {
+      return `Switch to Supported Network (${SUPPORTED_NETWORKS.join(', ')})`;
+    }
     if (!isMember) {return 'Not a Member';}
     if (!isRondaRunning) {return 'RONDA Not Running';}
     if (hasAlreadyDeposited) {return 'Already Deposited';}
@@ -393,7 +400,7 @@ export function DepositButton({
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    Please switch to Sepolia testnet to make deposits.
+                    Please switch to a supported network: {SUPPORTED_NETWORKS.join(', ')} to make deposits.
                   </AlertDescription>
                 </Alert>
               )}
@@ -419,7 +426,7 @@ export function DepositButton({
               Transaction Details
             </CardTitle>
             <CardDescription>
-              View your transactions on Sepolia block explorer
+              View your transactions on {currentNetworkConfig?.name || 'block'} explorer
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -562,7 +569,7 @@ export function DepositButton({
                   <div>
                     <span className="text-muted-foreground">Network:</span>
                     <div className="font-mono">
-                      {chainId === SEPOLIA_CHAIN_ID ? '✅ Sepolia' : '❌ Wrong Network'}
+                      {isNetworkSupported ? `✅ ${currentNetworkConfig?.name || 'Supported'}` : '❌ Not Supported'}
                     </div>
                   </div>
                 </div>
