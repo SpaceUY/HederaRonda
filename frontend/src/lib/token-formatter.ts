@@ -50,22 +50,12 @@ export class TokenFormatter {
    */
   async getTokenInfoFromAddress(tokenAddress: string): Promise<TokenInfo> {
     // Check cache first 
-    if (tokenInfoCache[tokenAddress]) {
-      // Only log cache hits occasionally to reduce spam
-      const shouldLog = Math.random() < 0.1; // Log ~10% of cache hits
-      if (shouldLog) {
-        console.log('✅ Token info cached:', {
-          address: tokenAddress,
-          symbol: tokenInfoCache[tokenAddress].symbol,
-          decimals: tokenInfoCache[tokenAddress].decimals
-        });
-      }
-      return tokenInfoCache[tokenAddress];
+    const tokenInfo = tokenInfoCache[tokenAddress];
+    if (tokenInfo) {
+      return tokenInfo;
     }
 
     try {
-      console.log('🔍 Fetching token info for address:', tokenAddress);
-
       const tokenContract = new ethers.Contract(
         tokenAddress,
         ERC20_ABI,
@@ -87,12 +77,6 @@ export class TokenFormatter {
       // Cache the result
       tokenInfoCache[tokenAddress] = tokenInfo;
       
-      console.log('✅ Token info cached:', {
-        address: tokenAddress,
-        symbol: tokenInfo.symbol,
-        decimals: tokenInfo.decimals
-      });
-
       return tokenInfo;
     } catch (error: any) {
       console.error('❌ Error fetching token info:', error);
@@ -115,13 +99,13 @@ export class TokenFormatter {
    */
   async getPaymentTokenInfo(contractAddress: string): Promise<TokenInfo> {
     // Check cache first
-    if (paymentTokenCache[contractAddress]) {
+    const paymentTokenInfo = paymentTokenCache[contractAddress];
+    if (paymentTokenInfo) {
       // Only log on first cache hit to reduce spam
-      if (!paymentTokenCache[contractAddress]._loggedCache) {
-        console.log('📋 Using cached payment token info for:', contractAddress);
-        paymentTokenCache[contractAddress]._loggedCache = true;
+      if (!paymentTokenInfo._loggedCache) {
+        paymentTokenCache[contractAddress]!._loggedCache = true;
       }
-      return paymentTokenCache[contractAddress];
+      return paymentTokenCache[contractAddress]!;
     }
 
     try {
