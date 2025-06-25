@@ -14,9 +14,6 @@ contract AddSupportedChain is Script {
         uint64 chainSelector = uint64(vm.envUint("SOURCE_CHAIN_SELECTOR"));
         address senderContract = vm.envAddress("SENDER_CONTRACT_ADDRESS");
 
-        // Start broadcasting transactions
-        vm.startBroadcast(deployerPrivateKey);
-
         // Get factory contract instance
         RondaFactory factory = RondaFactory(factoryAddress);
 
@@ -36,15 +33,37 @@ contract AddSupportedChain is Script {
             return;
         }
 
-        // Add supported chain to each Ronda instance
+        // Process one transaction at a time with longer delays
         for (uint256 i = 0; i < instances.length; i++) {
-            // Add supported chain
-            factory.addSupportedChain(i, chainSelector, senderContract);
-            
-            console2.log("  - SUCCESS: Chain added to this instance");
-        }
+            console2.log("Processing Ronda instance", i + 1, "of", rondaCount);
 
-        vm.stopBroadcast();
+            Ronda ronda = Ronda(instances[i]);
+            bool isSupported = ronda.supportedChains(chainSelector);
+            address sender = ronda.senderContracts(chainSelector);
+            if (isSupported && sender == senderContract) {
+                console2.log("  - Chain already supported");
+                continue;
+            }
+            
+            // Start broadcasting for this single transaction
+            vm.startBroadcast(deployerPrivateKey);
+            
+            try factory.addSupportedChain(i, chainSelector, senderContract) {
+                console2.log("  - SUCCESS: Chain added to Ronda instance", i);
+            } catch Error(string memory reason) {
+                console2.log("  - ERROR: Failed to add chain to Ronda instance", i, "-", reason);
+            } catch {
+                console2.log("  - ERROR: Failed to add chain to Ronda instance", i, "- Unknown error");
+            }
+            
+            vm.stopBroadcast();
+            
+            // Add longer delay between transactions to avoid rate limiting
+            if (i < instances.length - 1) {
+                console2.log("  - Waiting 10 seconds before next transaction...");
+                vm.sleep(10000); // 10 second delay
+            }
+        }
 
         console2.log("");
         console2.log("SUCCESS: Chain configuration completed!");
