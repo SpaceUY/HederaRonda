@@ -225,7 +225,7 @@ export class TokenFormatter {
   }
 
   /**
-   * Format entry fee (always in native chain token - ETH)
+   * Format entry fee using payment token information
    */
   async formatEntryFee(contractAddress: string): Promise<string> {
     // Check cache first
@@ -236,6 +236,9 @@ export class TokenFormatter {
 
     try {
       console.log('🔍 Fetching entry fee for contract:', contractAddress);
+
+      // Get payment token info for proper formatting
+      const tokenInfo = await this.getPaymentTokenInfo(contractAddress);
 
       const rondaContract = new ethers.Contract(
         contractAddress,
@@ -249,12 +252,15 @@ export class TokenFormatter {
         entryFeeAmount = await rondaContract?.entryFee?.();
       } catch (error) {
         console.warn('⚠️ entryFee() method not available, using mock value');
-        // Use mock value: 0.001 ETH
-        entryFeeAmount = ethers.parseEther('0.001');
+        // Use mock value based on token decimals
+        const decimalNum = Number(tokenInfo.decimals);
+        const mockAmount = BigInt(10) ** BigInt(decimalNum - 3); // 0.001 in token units
+        entryFeeAmount = mockAmount;
       }
 
-      // Entry fees are always in ETH (18 decimals) - format with minimal decimals
-      const formatted = this.formatAmount(entryFeeAmount, 18, 'ETH');
+      // Format using payment token info
+      const decimalNum = Number(tokenInfo.decimals);
+      const formatted = this.formatAmount(entryFeeAmount, decimalNum, tokenInfo.symbol);
 
       // Cache the result
       entryFeeCache[contractAddress] = {
@@ -266,16 +272,18 @@ export class TokenFormatter {
         contract: contractAddress,
         amount: entryFeeAmount.toString(),
         formatted,
+        token: tokenInfo.symbol,
+        decimals: decimalNum,
       });
 
       return formatted;
     } catch (error: any) {
       console.error('❌ Error fetching entry fee:', error);
       
-      // Fallback to mock value
-      const mockFormatted = '0.001 ETH';
+      // Fallback to mock value with default token info
+      const mockFormatted = '0.001 MTK';
       entryFeeCache[contractAddress] = {
-        amount: ethers.parseEther('0.001').toString(),
+        amount: '1000000000000000', // 0.001 in 18 decimals
         formatted: mockFormatted,
       };
       
