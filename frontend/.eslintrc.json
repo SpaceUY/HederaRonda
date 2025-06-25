@@ -27,7 +27,7 @@
     "react-hooks/exhaustive-deps": "warn",
     
     "import/order": [
-      "error",
+      "warn",
       {
         "groups": [
           "builtin",

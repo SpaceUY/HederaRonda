@@ -47,7 +47,7 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ) public initializer {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
-        
+
         vrfCoordinator = _vrfCoordinator;
         subscriptionId = _subscriptionId;
         keyHash = _keyHash;
@@ -63,7 +63,7 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         uint256 _entryFee,
         int256[] memory _interestDistribution,
         address _paymentToken
-    ) external onlyOwner returns (address) {
+    ) external returns (address) {
         Ronda newRonda = new Ronda(
             _participantCount,
             _milestoneCount,
@@ -81,7 +81,10 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
         rondaInstances.push(address(newRonda));
 
-        IVRFCoordinatorV2Plus(vrfCoordinator).addConsumer(subscriptionId, address(newRonda));
+        IVRFCoordinatorV2Plus(vrfCoordinator).addConsumer(
+            subscriptionId,
+            address(newRonda)
+        );
 
         emit RondaCreated(
             address(newRonda),
@@ -108,18 +111,28 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         return rondaInstances;
     }
 
-    function deliverRonda(uint256 rondaId, uint256 milestone) external onlyOwner {
+    function deliverRonda(
+        uint256 rondaId,
+        uint256 milestone
+    ) external onlyOwner {
         require(rondaId < rondaInstances.length, "Invalid ronda ID");
         Ronda(rondaInstances[rondaId]).deliverRonda(milestone);
     }
 
     // VRF V2.5 subscription management functions
     function acceptSubscriptionOwnership() external onlyOwner {
-        IVRFCoordinatorV2Plus(vrfCoordinator).acceptSubscriptionOwnerTransfer(subscriptionId);
+        IVRFCoordinatorV2Plus(vrfCoordinator).acceptSubscriptionOwnerTransfer(
+            subscriptionId
+        );
     }
 
-    function requestSubscriptionOwnerTransfer(address newOwner) external onlyOwner {
-        IVRFCoordinatorV2Plus(vrfCoordinator).requestSubscriptionOwnerTransfer(subscriptionId, newOwner);
+    function requestSubscriptionOwnerTransfer(
+        address newOwner
+    ) external onlyOwner {
+        IVRFCoordinatorV2Plus(vrfCoordinator).requestSubscriptionOwnerTransfer(
+            subscriptionId,
+            newOwner
+        );
     }
 
     function mintPenalty(address _participant) external onlyOwner {
@@ -129,7 +142,7 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     function removePenalty(address _participant) external onlyOwner {
         penaltyToken.burnPenalty(_participant);
     }
-    
+
     function setPenaltyToken(address _penaltyToken) external onlyOwner {
         penaltyToken = RondaSBT(_penaltyToken);
     }
@@ -174,5 +187,7 @@ contract RondaFactory is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     }
 
     // Required by UUPSUpgradeable
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal override onlyOwner {}
 }

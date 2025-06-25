@@ -66,6 +66,7 @@
     "lucide-react": "^0.446.0",
     "next": "14.2.5",
     "next-themes": "^0.3.0",
+    "pino-pretty": "^13.0.0",
     "postcss": "8.4.30",
     "react": "18.2.0",
     "react-day-picker": "^8.10.1",
@@ -87,9 +88,9 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint-config-prettier": "^9.0.0",
+    "eslint-import-resolver-typescript": "^3.6.1",
     "eslint-plugin-import": "^2.28.0",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "eslint-import-resolver-typescript": "^3.6.1",
     "prettier": "^3.0.0",
     "prettier-plugin-tailwindcss": "^0.5.0"
   },

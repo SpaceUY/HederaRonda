@@ -29,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { isCCIPSupported, getCCIPNetworkConfig } from '@/constants/ccip-config';
 import { useRoscaJoin } from '@/hooks/use-rosca-join';
 import { useTokenFormatter } from '@/hooks/use-token-formatter';
 
@@ -40,7 +41,7 @@ interface JoinRoscaButtonProps {
   className?: string;
 }
 
-const SEPOLIA_CHAIN_ID = 11155111;
+// Use dynamic network support instead of hardcoded value
 const BLOCK_EXPLORER_URL = 'https://sepolia.etherscan.io';
 
 export function JoinRoscaButton({
@@ -75,18 +76,11 @@ export function JoinRoscaButton({
     joinHash,
     reset,
     hasEnoughBalance,
-    currentAllowance,
     needsApproval,
     estimatedGas,
-    estimatedGasCost,
     estimatedGasCostFormatted,
     isEstimatingGas,
-    gasPrice,
-    gasPriceGwei,
-    totalCostWithGas,
-    entryFee,
     entryFeeFormatted,
-    totalRequiredAmount,
     totalRequiredFormatted,
     isAlreadyMember,
     isCheckingMembership,
@@ -100,7 +94,10 @@ export function JoinRoscaButton({
     roscaContractAddress,
   });
 
-  const isWrongNetwork = chainId !== SEPOLIA_CHAIN_ID;
+  // Check if current network is supported using CCIP config
+  const isNetworkSupported = chainId ? isCCIPSupported(chainId) : false;
+  const currentNetworkConfig = chainId ? getCCIPNetworkConfig(chainId) : null;
+  const isWrongNetwork = !isNetworkSupported;
 
   // Handle success callback
   React.useEffect(() => {
@@ -186,7 +183,7 @@ export function JoinRoscaButton({
     if (hasPenalties) {
       return `You have ${penaltyCount} penalty token${penaltyCount !== 1 ? 's' : ''} and cannot join RONDAs`;
     }
-    
+
     switch (step) {
       case 'checking':
         return 'Verifying your membership status and penalty tokens...';
@@ -236,13 +233,13 @@ export function JoinRoscaButton({
       <Button
         onClick={handleClick}
         disabled={isButtonDisabled}
-        className={`w-full text-base font-semibold py-6 ${className}`}
+        className={`w-full py-6 text-base font-semibold ${className}`}
         variant={
           step === 'error'
             ? 'outline'
             : isAlreadyMember || hasPenalties
-            ? 'secondary'
-            : 'default'
+              ? 'secondary'
+              : 'default'
         }
       >
         {getButtonIcon()}
@@ -259,12 +256,13 @@ export function JoinRoscaButton({
             error={penaltyError || ''}
             walletAddress={address || ''}
           />
-          
+
           {hasPenalties && (
             <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                You cannot participate in rounds due to contract violations. Please resolve your penalties before joining.
+                You cannot participate in rounds due to contract violations.
+                Please resolve your penalties before joining.
               </AlertDescription>
             </Alert>
           )}
@@ -281,10 +279,12 @@ export function JoinRoscaButton({
         </Alert>
       )}
 
-      {!isAlreadyMember && !hasPenalties && parseFloat(entryFeeFormatted) > 0 ? (
+      {!isAlreadyMember &&
+      !hasPenalties &&
+      parseFloat(entryFeeFormatted) > 0 ? (
         <Card className="border-l-4 border-l-warning">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <DollarSign className="h-4 w-4 text-warning" />
                 <span className="text-sm font-medium text-warning">
@@ -293,10 +293,10 @@ export function JoinRoscaButton({
               </div>
               <Badge
                 variant="outline"
-                className="bg-warning/10 text-warning border-warning/20"
+                className="border-warning/20 bg-warning/10 text-warning"
               >
                 {isFormattingAmounts ? (
-                  <div className="h-4 bg-muted animate-pulse rounded w-16" />
+                  <div className="h-4 w-16 animate-pulse rounded bg-muted" />
                 ) : (
                   formattedEntryFee || `${entryFeeFormatted} tokens`
                 )}
@@ -309,7 +309,7 @@ export function JoinRoscaButton({
                 </span>
                 <div className="font-medium">
                   {isFormattingAmounts ? (
-                    <div className="h-4 bg-muted animate-pulse rounded w-20" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-muted" />
                   ) : (
                     formattedMonthlyDeposit || `${contributionAmount} tokens`
                   )}
@@ -319,21 +319,22 @@ export function JoinRoscaButton({
                 <span className="text-muted-foreground">Entry Fee:</span>
                 <div className="font-medium">
                   {isFormattingAmounts ? (
-                    <div className="h-4 bg-muted animate-pulse rounded w-16" />
+                    <div className="h-4 w-16 animate-pulse rounded bg-muted" />
                   ) : (
                     formattedEntryFee || `${entryFeeFormatted} tokens`
                   )}
                 </div>
               </div>
             </div>
-            <div className="mt-2 pt-2 border-t">
+            <div className="mt-2 border-t pt-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Total Required:</span>
                 <span className="font-semibold text-warning">
                   {isFormattingAmounts ? (
-                    <div className="h-4 bg-muted animate-pulse rounded w-24" />
+                    <div className="h-4 w-24 animate-pulse rounded bg-muted" />
                   ) : (
-                    formattedTotalContribution || `${totalRequiredFormatted} tokens`
+                    formattedTotalContribution ||
+                    `${totalRequiredFormatted} tokens`
                   )}
                 </span>
               </div>
@@ -349,7 +350,7 @@ export function JoinRoscaButton({
       !isEstimatingGas ? (
         <Card className="border-l-4 border-l-success">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Zap className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium text-success">
@@ -358,7 +359,7 @@ export function JoinRoscaButton({
               </div>
               <Badge
                 variant="outline"
-                className="bg-success/10 text-success border-success/20"
+                className="border-success/20 bg-success/10 text-success"
               >
                 {estimatedGas.toLocaleString()} gas
               </Badge>
@@ -368,9 +369,10 @@ export function JoinRoscaButton({
                 <span className="text-muted-foreground">Token Amount:</span>
                 <div className="font-medium">
                   {isFormattingAmounts ? (
-                    <div className="h-4 bg-muted animate-pulse rounded w-20" />
+                    <div className="h-4 w-20 animate-pulse rounded bg-muted" />
                   ) : (
-                    formattedTotalContribution || `${totalRequiredFormatted} tokens`
+                    formattedTotalContribution ||
+                    `${totalRequiredFormatted} tokens`
                   )}
                 </div>
               </div>
@@ -382,7 +384,7 @@ export function JoinRoscaButton({
               </div>
             </div>
             {needsApproval && (
-              <div className="mt-2 pt-2 border-t">
+              <div className="mt-2 border-t pt-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Steps Required:</span>
                   <span className="font-semibold">1. Approve → 2. Join</span>
@@ -414,10 +416,10 @@ export function JoinRoscaButton({
                     step === 'success'
                       ? 'default'
                       : step === 'error'
-                      ? 'destructive'
-                      : isAlreadyMember || hasPenalties
-                      ? 'secondary'
-                      : 'secondary'
+                        ? 'destructive'
+                        : isAlreadyMember || hasPenalties
+                          ? 'secondary'
+                          : 'secondary'
                   }
                   className="gap-1"
                 >
@@ -425,7 +427,10 @@ export function JoinRoscaButton({
                   {step === 'error' && <AlertTriangle className="h-3 w-3" />}
                   {step === 'checking' && <UserCheck className="h-3 w-3" />}
                   {step === 'approving' && <Key className="h-3 w-3" />}
-                  {(isLoading || isEstimatingGas || isCheckingMembership || isPenaltyCheckLoading) && (
+                  {(isLoading ||
+                    isEstimatingGas ||
+                    isCheckingMembership ||
+                    isPenaltyCheckLoading) && (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   )}
                   {isAlreadyMember && <CheckCircle className="h-3 w-3" />}
@@ -433,14 +438,14 @@ export function JoinRoscaButton({
                   {hasPenalties
                     ? 'Blocked'
                     : isAlreadyMember
-                    ? 'Already Member'
-                    : isPenaltyCheckLoading
-                    ? 'Checking'
-                    : isEstimatingGas
-                    ? 'Estimating'
-                    : isCheckingMembership
-                    ? 'Verifying'
-                    : step.charAt(0).toUpperCase() + step.slice(1)}
+                      ? 'Already Member'
+                      : isPenaltyCheckLoading
+                        ? 'Checking'
+                        : isEstimatingGas
+                          ? 'Estimating'
+                          : isCheckingMembership
+                            ? 'Verifying'
+                            : step.charAt(0).toUpperCase() + step.slice(1)}
                 </Badge>
               </div>
 
@@ -451,24 +456,25 @@ export function JoinRoscaButton({
 
               {/* Penalty Check Progress */}
               {isPenaltyCheckLoading && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Shield className="h-4 w-4 text-info animate-pulse" />
+                <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                  <div className="mb-2 flex items-center space-x-2">
+                    <Shield className="h-4 w-4 animate-pulse text-info" />
                     <span className="text-sm font-medium text-info">
                       Penalty Token Verification
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Checking your wallet for penalty tokens before allowing participation...
+                    Checking your wallet for penalty tokens before allowing
+                    participation...
                   </p>
                 </div>
               )}
 
               {/* Membership Verification for ERC20 */}
               {step === 'checking' && !isPenaltyCheckLoading && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <UserCheck className="h-4 w-4 text-info animate-pulse" />
+                <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                  <div className="mb-2 flex items-center space-x-2">
+                    <UserCheck className="h-4 w-4 animate-pulse text-info" />
                     <span className="text-sm font-medium text-info">
                       Membership Verification
                     </span>
@@ -481,36 +487,39 @@ export function JoinRoscaButton({
               )}
 
               {/* Two-Step Process for ERC20 */}
-              {!isAlreadyMember && !hasPenalties && needsApproval && step === 'idle' && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <ArrowRight className="h-4 w-4 text-info" />
-                    <span className="text-sm font-medium text-info">
-                      Two-Step Process
-                    </span>
-                  </div>
-                  <div className="space-y-1 text-xs text-muted-foreground">
-                    <div className="flex items-center space-x-2">
-                      <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">
-                        1
+              {!isAlreadyMember &&
+                !hasPenalties &&
+                needsApproval &&
+                step === 'idle' && (
+                  <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                    <div className="mb-2 flex items-center space-x-2">
+                      <ArrowRight className="h-4 w-4 text-info" />
+                      <span className="text-sm font-medium text-info">
+                        Two-Step Process
                       </span>
-                      <span>Approve tokens for the RONDA contract</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">
-                        2
-                      </span>
-                      <span>Join the RONDA with approved tokens</span>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <div className="flex items-center space-x-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-info/20 text-xs font-bold text-info">
+                          1
+                        </span>
+                        <span>Approve tokens for the RONDA contract</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-info/20 text-xs font-bold text-info">
+                          2
+                        </span>
+                        <span>Join the RONDA with approved tokens</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
               {/* Gas Estimation Progress */}
               {isEstimatingGas && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-info animate-pulse" />
+                <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                  <div className="mb-2 flex items-center space-x-2">
+                    <TrendingUp className="h-4 w-4 animate-pulse text-info" />
                     <span className="text-sm font-medium text-info">
                       Calculating Gas Fees
                     </span>
@@ -523,22 +532,27 @@ export function JoinRoscaButton({
               )}
 
               {/* Balance Check */}
-              {!isAlreadyMember && !hasPenalties && !hasEnoughBalance && !isEstimatingGas && (
-                <Alert variant="destructive">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    Insufficient token balance. You need{' '}
-                    {formattedTotalContribution || totalRequiredFormatted} plus ETH for gas fees.
-                  </AlertDescription>
-                </Alert>
-              )}
+              {!isAlreadyMember &&
+                !hasPenalties &&
+                !hasEnoughBalance &&
+                !isEstimatingGas && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Insufficient token balance. You need{' '}
+                      {formattedTotalContribution || totalRequiredFormatted}{' '}
+                      plus ETH for gas fees.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
               {/* Network Check */}
               {isWrongNetwork && (
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    Please switch to Sepolia testnet to join this RONDA.
+                    Please switch to a supported network: Sepolia or Avalanche
+                    Fuji testnet to join this RONDA.
                   </AlertDescription>
                 </Alert>
               )}
@@ -559,24 +573,25 @@ export function JoinRoscaButton({
       {(approvalHash || joinHash) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <ExternalLink className="h-4 w-4" />
               Transaction Details
             </CardTitle>
             <CardDescription>
-              View your transactions on Sepolia block explorer
+              View your transactions on {currentNetworkConfig?.name || 'block'}{' '}
+              explorer
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Approval Transaction */}
             {approvalHash && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
                 <div className="space-y-1">
-                  <div className="font-medium text-sm flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
                     <Key className="h-3 w-3" />
                     Token Approval
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono">
+                  <div className="font-mono text-xs text-muted-foreground">
                     {approvalHash.slice(0, 10)}...{approvalHash.slice(-8)}
                   </div>
                 </div>
@@ -594,13 +609,13 @@ export function JoinRoscaButton({
 
             {/* Join Transaction */}
             {joinHash && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
                 <div className="space-y-1">
-                  <div className="font-medium text-sm flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
                     <DollarSign className="h-3 w-3" />
                     Join RONDA
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono">
+                  <div className="font-mono text-xs text-muted-foreground">
                     {joinHash.slice(0, 10)}...{joinHash.slice(-8)}
                   </div>
                   {estimatedGas ? (
@@ -645,11 +660,13 @@ export function JoinRoscaButton({
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <span className="text-muted-foreground">
-                  Penalty Status:
-                </span>
+                <span className="text-muted-foreground">Penalty Status:</span>
                 <div className="font-medium">
-                  {isPenaltyCheckLoading ? '🔄 Checking...' : hasPenalties ? `❌ ${penaltyCount} Penalties` : '✅ No Penalties'}
+                  {isPenaltyCheckLoading
+                    ? '🔄 Checking...'
+                    : hasPenalties
+                      ? `❌ ${penaltyCount} Penalties`
+                      : '✅ No Penalties'}
                 </div>
               </div>
               <div>
@@ -686,15 +703,16 @@ export function JoinRoscaButton({
 
             {/* Entry Fee Breakdown */}
             {parseFloat(entryFeeFormatted) > 0 ? (
-              <div className="pt-3 border-t">
-                <h4 className="font-medium text-sm mb-2">Cost Breakdown</h4>
+              <div className="border-t pt-3">
+                <h4 className="mb-2 text-sm font-medium">Cost Breakdown</h4>
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
                     <span className="text-muted-foreground">
                       Monthly Contribution:
                     </span>
                     <div className="font-mono">
-                      {formattedMonthlyDeposit || `${contributionAmount} tokens`}
+                      {formattedMonthlyDeposit ||
+                        `${contributionAmount} tokens`}
                     </div>
                   </div>
                   <div>
@@ -725,11 +743,11 @@ export function JoinRoscaButton({
               </div>
             ) : null}
 
-            <div className="pt-3 border-t">
+            <div className="border-t pt-3">
               <div className="space-y-2 text-xs">
                 <div>
                   <span className="text-muted-foreground">RONDA Contract:</span>
-                  <div className="font-mono break-all">
+                  <div className="break-all font-mono">
                     {roscaContractAddress}
                   </div>
                 </div>
@@ -757,20 +775,26 @@ export function JoinRoscaButton({
       {step === 'success' && (
         <Card className="border-success/20 bg-success/5">
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2 mb-3">
+            <div className="mb-3 flex items-center space-x-2">
               <CheckCircle className="h-5 w-5 text-success" />
               <span className="font-medium text-success">
                 Successfully Joined RONDA!
               </span>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="mb-4 text-sm text-muted-foreground">
               You are now a member of this RONDA. Your tokens have been
               transferred to the contract.
             </p>
-            <div className="space-y-2 text-xs text-muted-foreground mb-4">
-              <div>Total tokens sent: {formattedTotalContribution || totalRequiredFormatted}</div>
+            <div className="mb-4 space-y-2 text-xs text-muted-foreground">
+              <div>
+                Total tokens sent:{' '}
+                {formattedTotalContribution || totalRequiredFormatted}
+              </div>
               {parseFloat(entryFeeFormatted) > 0 && (
-                <div>Entry fee: {formattedEntryFee || `${entryFeeFormatted} tokens`}</div>
+                <div>
+                  Entry fee:{' '}
+                  {formattedEntryFee || `${entryFeeFormatted} tokens`}
+                </div>
               )}
               {estimatedGasCostFormatted ? (
                 <div>
@@ -785,7 +809,7 @@ export function JoinRoscaButton({
                 size="sm"
                 onClick={() => window.location.reload()}
               >
-                <RefreshCw className="h-3 w-3 mr-1" />
+                <RefreshCw className="mr-1 h-3 w-3" />
                 Refresh Page
               </Button>
               {joinHash && (
@@ -795,7 +819,7 @@ export function JoinRoscaButton({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <ExternalLink className="h-3 w-3 mr-1" />
+                    <ExternalLink className="mr-1 h-3 w-3" />
                     View Transaction
                   </a>
                 </Button>

@@ -394,6 +394,13 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
                 abi.decode(message.sender, (address)),
             "Invalid sender"
         );
+        
+        // Verify the token received is the same as the payment token
+        Client.EVMTokenAmount memory destToken = message.destTokenAmounts[0];
+        require(
+            destToken.token == address(paymentToken),
+            "Invalid token"
+        );
 
         // Get the original sender from the source chain
         address originalSender = abi.decode(message.sender, (address));
@@ -405,12 +412,24 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
         );
 
         if (selector == this.joinRonda.selector) {
+            // Verify the amount received is the same as the entry fee
+            require(
+                destToken.amount == entryFee,
+                "Invalid amount"
+            );
+
             _joinRondaInternal(originalSender);
             emit CrossChainJoinRequested(
                 originalSender,
                 message.sourceChainSelector
             );
         } else if (selector == this.deposit.selector) {
+            // Verify the amount received is the same as the monthly deposit
+            require(
+                destToken.amount == monthlyDeposit,
+                "Invalid amount"
+            );
+
             uint256 milestone = abi.decode(params, (uint256));
             _depositInternal(originalSender, milestone);
             emit CrossChainDepositRequested(

@@ -27,7 +27,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  isCCIPSupported,
+  getCCIPNetworkConfig,
+  SUPPORTED_NETWORKS,
+} from '@/constants/ccip-config';
 import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
+
 interface DepositButtonProps {
   roscaContractAddress: string;
   milestoneIndex?: number;
@@ -36,7 +42,7 @@ interface DepositButtonProps {
   className?: string;
 }
 
-const SEPOLIA_CHAIN_ID = 11155111;
+// Use the default network from CCIP config instead of hardcoded value
 const BLOCK_EXPLORER_URL = 'https://sepolia.etherscan.io';
 
 export function DepositButton({
@@ -76,7 +82,10 @@ export function DepositButton({
     roscaContractAddress,
   });
 
-  const isWrongNetwork = chainId !== SEPOLIA_CHAIN_ID;
+  // Check if current network is supported using CCIP config
+  const isNetworkSupported = chainId ? isCCIPSupported(chainId) : false;
+  const currentNetworkConfig = chainId ? getCCIPNetworkConfig(chainId) : null;
+  const isWrongNetwork = !isNetworkSupported;
 
   // Handle success callback
   React.useEffect(() => {
@@ -220,17 +229,17 @@ export function DepositButton({
       <Button
         onClick={handleClick}
         disabled={isButtonDisabled}
-        className={`w-full text-base font-semibold py-6 ${className}`}
+        className={`w-full py-6 text-base font-semibold ${className}`}
         variant={
           step === 'error'
             ? 'outline'
             : !isMember
-            ? 'secondary'
-            : !isRondaRunning
-            ? 'secondary'
-            : hasAlreadyDeposited
-            ? 'secondary'
-            : 'default'
+              ? 'secondary'
+              : !isRondaRunning
+                ? 'secondary'
+                : hasAlreadyDeposited
+                  ? 'secondary'
+                  : 'default'
         }
       >
         {getButtonIcon()}
@@ -275,7 +284,7 @@ export function DepositButton({
       {canMakeDeposits && !hasAlreadyDeposited && milestoneInfo && (
         <Card className="border-l-4 border-l-info">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Calendar className="h-4 w-4 text-info" />
                 <span className="text-sm font-medium text-info">
@@ -284,7 +293,7 @@ export function DepositButton({
               </div>
               <Badge
                 variant="outline"
-                className="bg-info/10 text-info border-info/20"
+                className="border-info/20 bg-info/10 text-info"
               >
                 {milestoneInfo.isComplete ? 'Complete' : 'Active'}
               </Badge>
@@ -305,9 +314,9 @@ export function DepositButton({
               </div>
             </div>
             <div className="mt-2">
-              <div className="w-full bg-muted rounded-full h-2">
+              <div className="h-2 w-full rounded-full bg-muted">
                 <div
-                  className="bg-info rounded-full h-2 transition-all duration-300"
+                  className="h-2 rounded-full bg-info transition-all duration-300"
                   style={{
                     width: `${Math.min(
                       100,
@@ -318,7 +327,7 @@ export function DepositButton({
                   }}
                 />
               </div>
-              <div className="text-xs text-muted-foreground mt-1">
+              <div className="mt-1 text-xs text-muted-foreground">
                 {Math.round(
                   (Number(milestoneInfo.totalDeposits) /
                     Number(milestoneInfo.requiredDeposits)) *
@@ -338,7 +347,7 @@ export function DepositButton({
       !isEstimatingGas ? (
         <Card className="border-l-4 border-l-success">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Zap className="h-4 w-4 text-success" />
                 <span className="text-sm font-medium text-success">
@@ -347,7 +356,7 @@ export function DepositButton({
               </div>
               <Badge
                 variant="outline"
-                className="bg-success/10 text-success border-success/20"
+                className="border-success/20 bg-success/10 text-success"
               >
                 {estimatedGas.toLocaleString()} gas
               </Badge>
@@ -367,7 +376,7 @@ export function DepositButton({
               </div>
             </div>
             {needsApproval && (
-              <div className="mt-2 pt-2 border-t">
+              <div className="mt-2 border-t pt-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Steps Required:</span>
                   <span className="font-semibold">1. Approve → 2. Deposit</span>
@@ -399,14 +408,14 @@ export function DepositButton({
                     step === 'success'
                       ? 'default'
                       : step === 'error'
-                      ? 'destructive'
-                      : !isMember
-                      ? 'secondary'
-                      : !isRondaRunning
-                      ? 'secondary'
-                      : hasAlreadyDeposited
-                      ? 'secondary'
-                      : 'secondary'
+                        ? 'destructive'
+                        : !isMember
+                          ? 'secondary'
+                          : !isRondaRunning
+                            ? 'secondary'
+                            : hasAlreadyDeposited
+                              ? 'secondary'
+                              : 'secondary'
                   }
                   className="gap-1"
                 >
@@ -423,14 +432,14 @@ export function DepositButton({
                   {!isMember
                     ? 'Not Member'
                     : !isRondaRunning
-                    ? 'Not Running'
-                    : hasAlreadyDeposited
-                    ? 'Deposited'
-                    : isEstimatingGas
-                    ? 'Estimating'
-                    : isCheckingMembership
-                    ? 'Checking'
-                    : step.charAt(0).toUpperCase() + step.slice(1)}
+                      ? 'Not Running'
+                      : hasAlreadyDeposited
+                        ? 'Deposited'
+                        : isEstimatingGas
+                          ? 'Estimating'
+                          : isCheckingMembership
+                            ? 'Checking'
+                            : step.charAt(0).toUpperCase() + step.slice(1)}
                 </Badge>
               </div>
 
@@ -441,9 +450,9 @@ export function DepositButton({
 
               {/* Membership Verification */}
               {step === 'checking' && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <UserCheck className="h-4 w-4 text-info animate-pulse" />
+                <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                  <div className="mb-2 flex items-center space-x-2">
+                    <UserCheck className="h-4 w-4 animate-pulse text-info" />
                     <span className="text-sm font-medium text-info">
                       Membership & Deposit Verification
                     </span>
@@ -460,8 +469,8 @@ export function DepositButton({
                 !hasAlreadyDeposited &&
                 needsApproval &&
                 step === 'idle' && (
-                  <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                    <div className="flex items-center space-x-2 mb-2">
+                  <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                    <div className="mb-2 flex items-center space-x-2">
                       <ArrowRight className="h-4 w-4 text-info" />
                       <span className="text-sm font-medium text-info">
                         Two-Step Process
@@ -469,13 +478,13 @@ export function DepositButton({
                     </div>
                     <div className="space-y-1 text-xs text-muted-foreground">
                       <div className="flex items-center space-x-2">
-                        <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-info/20 text-xs font-bold text-info">
                           1
                         </span>
                         <span>Approve tokens for the RONDA contract</span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="w-4 h-4 bg-info/20 rounded-full flex items-center justify-center text-info font-bold text-xs">
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-info/20 text-xs font-bold text-info">
                           2
                         </span>
                         <span>Make monthly deposit to the milestone</span>
@@ -486,9 +495,9 @@ export function DepositButton({
 
               {/* Gas Estimation Progress */}
               {isEstimatingGas && (
-                <div className="p-3 bg-info/5 rounded-lg border border-info/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Zap className="h-4 w-4 text-info animate-pulse" />
+                <div className="rounded-lg border border-info/20 bg-info/5 p-3">
+                  <div className="mb-2 flex items-center space-x-2">
+                    <Zap className="h-4 w-4 animate-pulse text-info" />
                     <span className="text-sm font-medium text-info">
                       Calculating Gas Fees
                     </span>
@@ -519,7 +528,8 @@ export function DepositButton({
                 <Alert variant="destructive">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    Please switch to Sepolia testnet to make deposits.
+                    Please switch to a supported network:{' '}
+                    {SUPPORTED_NETWORKS.join(', ')} to make deposits.
                   </AlertDescription>
                 </Alert>
               )}
@@ -540,24 +550,25 @@ export function DepositButton({
       {(approvalHash || depositHash) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-lg">
               <ExternalLink className="h-4 w-4" />
               Transaction Details
             </CardTitle>
             <CardDescription>
-              View your transactions on Sepolia block explorer
+              View your transactions on {currentNetworkConfig?.name || 'block'}{' '}
+              explorer
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {/* Approval Transaction */}
             {approvalHash && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
                 <div className="space-y-1">
-                  <div className="font-medium text-sm flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
                     <Key className="h-3 w-3" />
                     Token Approval
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono">
+                  <div className="font-mono text-xs text-muted-foreground">
                     {approvalHash.slice(0, 10)}...{approvalHash.slice(-8)}
                   </div>
                 </div>
@@ -575,13 +586,13 @@ export function DepositButton({
 
             {/* Deposit Transaction */}
             {depositHash && (
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
                 <div className="space-y-1">
-                  <div className="font-medium text-sm flex items-center gap-2">
+                  <div className="flex items-center gap-2 text-sm font-medium">
                     <DollarSign className="h-3 w-3" />
                     Monthly Deposit
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono">
+                  <div className="font-mono text-xs text-muted-foreground">
                     {depositHash.slice(0, 10)}...{depositHash.slice(-8)}
                   </div>
                   {estimatedGas ? (
@@ -684,8 +695,8 @@ export function DepositButton({
             </div>
 
             {estimatedGas && estimatedGasCostFormatted ? (
-              <div className="pt-3 border-t">
-                <h4 className="font-medium text-sm mb-2">Gas Estimation</h4>
+              <div className="border-t pt-3">
+                <h4 className="mb-2 text-sm font-medium">Gas Estimation</h4>
                 <div className="grid grid-cols-2 gap-4 text-xs">
                   <div>
                     <span className="text-muted-foreground">Gas Limit:</span>
@@ -708,20 +719,18 @@ export function DepositButton({
                   <div>
                     <span className="text-muted-foreground">Network:</span>
                     <div className="font-mono">
-                      {chainId === SEPOLIA_CHAIN_ID
-                        ? '✅ Sepolia'
-                        : '❌ Wrong Network'}
+                      {isNetworkSupported ? '✅ Sepolia' : '❌ Wrong Network'}
                     </div>
                   </div>
                 </div>
               </div>
             ) : null}
 
-            <div className="pt-3 border-t">
+            <div className="border-t pt-3">
               <div className="space-y-2 text-xs">
                 <div>
                   <span className="text-muted-foreground">RONDA Contract:</span>
-                  <div className="font-mono break-all">
+                  <div className="break-all font-mono">
                     {roscaContractAddress}
                   </div>
                 </div>
@@ -749,17 +758,17 @@ export function DepositButton({
       {step === 'success' && (
         <Card className="border-success/20 bg-success/5">
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2 mb-3">
+            <div className="mb-3 flex items-center space-x-2">
               <CheckCircle className="h-5 w-5 text-success" />
               <span className="font-medium text-success">
                 Deposit Successful!
               </span>
             </div>
-            <p className="text-sm text-muted-foreground mb-4">
+            <p className="mb-4 text-sm text-muted-foreground">
               Your monthly deposit has been processed and recorded in the RONDA
               contract.
             </p>
-            <div className="space-y-2 text-xs text-muted-foreground mb-4">
+            <div className="mb-4 space-y-2 text-xs text-muted-foreground">
               <div>Deposit amount: {monthlyDepositFormatted} tokens</div>
               <div>Milestone: #{currentMilestone || milestoneIndex}</div>
               {estimatedGasCostFormatted && (
@@ -775,7 +784,7 @@ export function DepositButton({
                 size="sm"
                 onClick={() => window.location.reload()}
               >
-                <RefreshCw className="h-3 w-3 mr-1" />
+                <RefreshCw className="mr-1 h-3 w-3" />
                 Refresh Page
               </Button>
               {depositHash && (
@@ -785,7 +794,7 @@ export function DepositButton({
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <ExternalLink className="h-3 w-3 mr-1" />
+                    <ExternalLink className="mr-1 h-3 w-3" />
                     View Transaction
                   </a>
                 </Button>

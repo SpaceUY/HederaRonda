@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { parseEther, formatEther, getEventSelector, decodeEventLog } from 'viem';
+import { parseEther, formatEther, decodeEventLog } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, usePublicClient } from 'wagmi';
 
-import { FACTORY_ABI, CONTRACT_ADDRESSES } from '@/lib/contracts';
+import { RONDA_FACTORY_ABI } from '@/constants/abis/ronda-factory-abi';
+import { CONTRACT_ADDRESSES } from '@/lib/contracts';
 
 export interface CreateRondaParams {
   participantCount: number;
@@ -160,7 +161,7 @@ export function useFactoryContract(): UseFactoryContractReturn {
         // Try to estimate gas for the createRonda function call using the consistent ABI
         const gasEstimate = await publicClient.estimateContractGas({
           address: CONTRACT_ADDRESSES.PROXY_FACTORY as `0x${string}`,
-          abi: FACTORY_ABI,
+          abi: RONDA_FACTORY_ABI,
           functionName: 'createRonda',
           args: [
             BigInt(params.participantCount),
@@ -221,7 +222,7 @@ export function useFactoryContract(): UseFactoryContractReturn {
       
       writeContract({
         address: CONTRACT_ADDRESSES.PROXY_FACTORY as `0x${string}`,
-        abi: FACTORY_ABI,
+        abi: RONDA_FACTORY_ABI,
         functionName: 'createRonda',
         args: [
           BigInt(params.participantCount),
@@ -248,46 +249,43 @@ export function useFactoryContract(): UseFactoryContractReturn {
       
       // Try to extract the new RONDA address from logs
       try {
-        // Calculate the event signature hash for RondaCreated event
-        const rondaCreatedEventSignature = getEventSelector({
-          name: 'RondaCreated',
-          type: 'event',
-          inputs: [
-            { indexed: true, internalType: 'address', name: 'rondaAddress', type: 'address' },
-            { indexed: true, internalType: 'address', name: 'creator', type: 'address' },
-            { indexed: false, internalType: 'uint256', name: 'participantCount', type: 'uint256' },
-            { indexed: false, internalType: 'uint256', name: 'milestoneCount', type: 'uint256' },
-          ],
-        });
+        console.log('🔍 Looking for RondaCreated event in transaction logs...');
 
-        console.log('🔍 Looking for RondaCreated event with signature:', rondaCreatedEventSignature);
+        // Find and decode RondaCreated events from the factory contract
+        const factoryLogs = receipt.logs.filter(log => 
+          log.address.toLowerCase() === CONTRACT_ADDRESSES.PROXY_FACTORY.toLowerCase()
+        );
 
-        // Find the RondaCreated event log
-        const rondaCreatedLog = receipt.logs.find(log => {
-          return log.topics[0] === rondaCreatedEventSignature &&
-                 log.address.toLowerCase() === CONTRACT_ADDRESSES.PROXY_FACTORY.toLowerCase();
-        });
+        console.log('📋 Found factory logs:', factoryLogs.length);
 
-        if (rondaCreatedLog) {
-          console.log('📋 Found RondaCreated log:', rondaCreatedLog);
+        let rondaCreatedEvent = null;
 
-          // Decode the event log using the consistent ABI
-          const decodedLog = decodeEventLog({
-            abi: FACTORY_ABI,
-            data: rondaCreatedLog.data,
-            topics: rondaCreatedLog.topics,
-          });
+        // Try to decode each log to find the RondaCreated event
+        for (const log of factoryLogs) {
+          try {
+            const decodedLog = decodeEventLog({
+              abi: RONDA_FACTORY_ABI,
+              data: log.data,
+              topics: log.topics,
+            });
 
-          console.log('🎯 Decoded RondaCreated event:', decodedLog);
+            console.log('🔍 Decoded log:', decodedLog.eventName, decodedLog.args);
 
-          if (decodedLog.eventName === 'RondaCreated' && decodedLog.args) {
-            const extractedAddress = decodedLog.args.rondaAddress as string;
-            console.log('🎯 Extracted new RONDA address:', extractedAddress);
-            setNewRondaAddress(extractedAddress);
-          } else {
-            console.warn('⚠️ Unexpected event structure, using mock address');
-            setNewRondaAddress(`0x${Math.random().toString(16).substr(2, 40)}`);
+            if (decodedLog.eventName === 'RondaCreated') {
+              rondaCreatedEvent = decodedLog;
+              break;
+            }
+          } catch (decodeError) {
+            // Skip logs that can't be decoded with our ABI
+            console.log('⚠️ Could not decode log, skipping:', decodeError);
+            continue;
           }
+        }
+
+        if (rondaCreatedEvent && rondaCreatedEvent.args) {
+          const extractedAddress = rondaCreatedEvent.args.rondaAddress as string;
+          console.log('🎯 Extracted new RONDA address:', extractedAddress);
+          setNewRondaAddress(extractedAddress);
         } else {
           console.warn('⚠️ Could not find RondaCreated event in logs, using mock address');
           // For demo purposes, generate a mock address

@@ -2,7 +2,17 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { ethers } from 'ethers';
-import { AlertTriangle, CheckCircle, DollarSign, Users, Calendar, TrendingUp, Loader2, ExternalLink, RefreshCw } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle,
+  DollarSign,
+  Users,
+  Calendar,
+  TrendingUp,
+  Loader2,
+  ExternalLink,
+  RefreshCw,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -11,7 +21,13 @@ import { z } from 'zod';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -22,28 +38,43 @@ import { tokenFormatter } from '@/lib/token-formatter';
 
 // Form validation schema
 const createRondaSchema = z.object({
-  participantCount: z.number().min(2, 'Minimum 2 participants').max(50, 'Maximum 50 participants'),
-  milestoneCount: z.number().min(2, 'Minimum 2 milestones').max(12, 'Maximum 12 milestones'),
-  monthlyDeposit: z.string().min(1, 'Monthly deposit is required').refine(
-    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-    'Must be a valid positive number'
-  ),
-  entryFee: z.string().min(1, 'Entry fee is required').refine(
-    (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-    'Must be a valid positive number'
-  ),
+  participantCount: z
+    .number()
+    .min(2, 'Minimum 2 participants')
+    .max(50, 'Maximum 50 participants'),
+  milestoneCount: z
+    .number()
+    .min(2, 'Minimum 2 milestones')
+    .max(12, 'Maximum 12 milestones'),
+  monthlyDeposit: z
+    .string()
+    .min(1, 'Monthly deposit is required')
+    .refine(
+      (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+      'Must be a valid positive number'
+    ),
+  entryFee: z
+    .string()
+    .min(1, 'Entry fee is required')
+    .refine(
+      (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+      'Must be a valid positive number'
+    ),
   interestDistribution: z.enum(['Conservative', 'Balanced', 'Aggressive']),
-  paymentToken: z.string().min(1, 'Payment token address is required').refine(
-    (val) => ethers.isAddress(val),
-    'Must be a valid Ethereum address'
-  ),
+  paymentToken: z
+    .string()
+    .min(1, 'Payment token address is required')
+    .refine((val) => ethers.isAddress(val), 'Must be a valid Ethereum address'),
 });
 
 type CreateRondaFormData = z.infer<typeof createRondaSchema>;
 
 export function CreateRondaForm() {
   const router = useRouter();
-  const [tokenInfo, setTokenInfo] = useState<{ symbol: string; decimals: number } | null>(null);
+  const [tokenInfo, setTokenInfo] = useState<{
+    symbol: string;
+    decimals: number;
+  } | null>(null);
   const [isValidatingToken, setIsValidatingToken] = useState(false);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [previewDistribution, setPreviewDistribution] = useState<number[]>([]);
@@ -87,7 +118,7 @@ export function CreateRondaForm() {
     try {
       // Use the new direct token info method instead of trying to call paymentToken() on a mock contract
       const info = await tokenFormatter.getTokenInfoFromAddress(address);
-      
+
       setTokenInfo({
         symbol: info.symbol,
         decimals: info.decimals,
@@ -132,9 +163,10 @@ export function CreateRondaForm() {
       const interestDistribution = preset?.calculate(data.milestoneCount);
 
       // Convert amounts to wei
-      const monthlyDepositWei = tokenInfo?.symbol === 'ETH' 
-        ? ethers.parseEther(data.monthlyDeposit)
-        : ethers.parseUnits(data.monthlyDeposit, tokenInfo?.decimals || 6);
+      const monthlyDepositWei =
+        tokenInfo?.symbol === 'ETH'
+          ? ethers.parseEther(data.monthlyDeposit)
+          : ethers.parseUnits(data.monthlyDeposit, tokenInfo?.decimals || 6);
 
       const entryFeeWei = ethers.parseEther(data.entryFee); // Always ETH
 
@@ -176,42 +208,53 @@ export function CreateRondaForm() {
     return (
       <Card className="border-success/20 bg-success/5">
         <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-success/10">
             <CheckCircle className="h-8 w-8 text-success" />
           </div>
-          <CardTitle className="text-2xl text-success">RONDA Created Successfully!</CardTitle>
+          <CardTitle className="text-2xl text-success">
+            RONDA Created Successfully!
+          </CardTitle>
           <CardDescription>
-            Your new RONDA contract has been deployed and is ready for participants
+            Your new RONDA contract has been deployed and is ready for
+            participants
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="p-4 bg-success/10 rounded-lg border border-success/20">
+          <div className="rounded-lg border border-success/20 bg-success/10 p-4">
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Contract Address:</span>
-                <span className="font-mono">{newRondaAddress.slice(0, 10)}...{newRondaAddress.slice(-8)}</span>
+                <span className="font-mono">
+                  {newRondaAddress.slice(0, 10)}...{newRondaAddress.slice(-8)}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Participants:</span>
-                <span className="font-medium">{watchedValues.participantCount} members</span>
+                <span className="font-medium">
+                  {watchedValues.participantCount} members
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Duration:</span>
-                <span className="font-medium">{watchedValues.milestoneCount} months</span>
+                <span className="font-medium">
+                  {watchedValues.milestoneCount} months
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Monthly Deposit:</span>
-                <span className="font-medium">{watchedValues.monthlyDeposit} {tokenInfo?.symbol || 'MTK'}</span>
+                <span className="font-medium">
+                  {watchedValues.monthlyDeposit} {tokenInfo?.symbol || 'MTK'}
+                </span>
               </div>
             </div>
           </div>
 
           {txHash && (
-            <div className="p-3 bg-muted/50 rounded-lg">
+            <div className="rounded-lg bg-muted/50 p-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium text-sm">Transaction Hash</div>
-                  <div className="text-xs text-muted-foreground font-mono">
+                  <div className="text-sm font-medium">Transaction Hash</div>
+                  <div className="font-mono text-xs text-muted-foreground">
                     {txHash.slice(0, 10)}...{txHash.slice(-8)}
                   </div>
                 </div>
@@ -255,7 +298,7 @@ export function CreateRondaForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="participantCount">Number of Participants</Label>
               <Input
@@ -264,7 +307,11 @@ export function CreateRondaForm() {
                 min={2}
                 max={50}
                 {...form.register('participantCount', { valueAsNumber: true })}
-                className={form.formState.errors.participantCount ? 'border-destructive' : ''}
+                className={
+                  form.formState.errors.participantCount
+                    ? 'border-destructive'
+                    : ''
+                }
               />
               {form.formState.errors.participantCount && (
                 <p className="text-sm text-destructive">
@@ -284,7 +331,11 @@ export function CreateRondaForm() {
                 min={2}
                 max={12}
                 {...form.register('milestoneCount', { valueAsNumber: true })}
-                className={form.formState.errors.milestoneCount ? 'border-destructive' : ''}
+                className={
+                  form.formState.errors.milestoneCount
+                    ? 'border-destructive'
+                    : ''
+                }
               />
               {form.formState.errors.milestoneCount && (
                 <p className="text-sm text-destructive">
@@ -298,25 +349,35 @@ export function CreateRondaForm() {
           </div>
 
           {/* Preview Calculation */}
-          <div className="p-4 bg-muted/30 rounded-lg">
-            <h4 className="font-medium mb-2">RONDA Overview</h4>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div className="rounded-lg bg-muted/30 p-4">
+            <h4 className="mb-2 font-medium">RONDA Overview</h4>
+            <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
               <div>
                 <span className="text-muted-foreground">Total Members:</span>
-                <div className="font-medium">{watchedValues.participantCount}</div>
+                <div className="font-medium">
+                  {watchedValues.participantCount}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Duration:</span>
-                <div className="font-medium">{watchedValues.milestoneCount} months</div>
+                <div className="font-medium">
+                  {watchedValues.milestoneCount} months
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Total Rounds:</span>
-                <div className="font-medium">{watchedValues.participantCount}</div>
+                <div className="font-medium">
+                  {watchedValues.participantCount}
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Payout per Round:</span>
                 <div className="font-medium">
-                  {(parseFloat(watchedValues.monthlyDeposit || '0') * watchedValues.participantCount).toFixed(2)} {tokenInfo?.symbol || 'MTK'}
+                  {(
+                    parseFloat(watchedValues.monthlyDeposit || '0') *
+                    watchedValues.participantCount
+                  ).toFixed(2)}{' '}
+                  {tokenInfo?.symbol || 'MTK'}
                 </div>
               </div>
             </div>
@@ -335,7 +396,7 @@ export function CreateRondaForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="monthlyDeposit">Monthly Deposit Amount</Label>
               <div className="relative">
@@ -345,7 +406,11 @@ export function CreateRondaForm() {
                   step="0.000001"
                   min="0"
                   {...form.register('monthlyDeposit')}
-                  className={form.formState.errors.monthlyDeposit ? 'border-destructive' : ''}
+                  className={
+                    form.formState.errors.monthlyDeposit
+                      ? 'border-destructive'
+                      : ''
+                  }
                 />
                 {tokenInfo && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
@@ -364,7 +429,7 @@ export function CreateRondaForm() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="entryFee">Entry Fee (ETH)</Label>
+              <Label htmlFor="entryFee">Entry Fee</Label>
               <div className="relative">
                 <Input
                   id="entryFee"
@@ -372,7 +437,9 @@ export function CreateRondaForm() {
                   step="0.000001"
                   min="0"
                   {...form.register('entryFee')}
-                  className={form.formState.errors.entryFee ? 'border-destructive' : ''}
+                  className={
+                    form.formState.errors.entryFee ? 'border-destructive' : ''
+                  }
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
                   ETH
@@ -407,7 +474,8 @@ export function CreateRondaForm() {
               <p className="text-sm text-destructive">{tokenError}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              ERC20 token contract address for monthly contributions (e.g., MTK token)
+              ERC20 token contract address for monthly contributions (e.g., MTK
+              token)
             </p>
           </div>
 
@@ -420,10 +488,12 @@ export function CreateRondaForm() {
           )}
 
           {tokenInfo && !isValidatingToken && (
-            <div className="p-3 bg-success/5 rounded-lg border border-success/20">
-              <div className="flex items-center space-x-2 mb-2">
+            <div className="rounded-lg border border-success/20 bg-success/5 p-3">
+              <div className="mb-2 flex items-center space-x-2">
                 <CheckCircle className="h-4 w-4 text-success" />
-                <span className="text-sm font-medium text-success">Token Validated</span>
+                <span className="text-sm font-medium text-success">
+                  Token Validated
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -453,7 +523,9 @@ export function CreateRondaForm() {
         <CardContent className="space-y-6">
           <RadioGroup
             value={watchedValues.interestDistribution}
-            onValueChange={(value) => form.setValue('interestDistribution', value as any)}
+            onValueChange={(value) =>
+              form.setValue('interestDistribution', value as any)
+            }
             className="space-y-4"
           >
             {Object.entries(INTEREST_PRESETS).map(([key, preset]) => (
@@ -462,28 +534,42 @@ export function CreateRondaForm() {
                 <div className="flex-1 space-y-2">
                   <Label htmlFor={key} className="cursor-pointer">
                     <div className="font-medium">{preset.name}</div>
-                    <div className="text-sm text-muted-foreground">{preset.description}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {preset.description}
+                    </div>
                   </Label>
-                  
-                  {watchedValues.interestDistribution === key && previewDistribution.length > 0 ? (
-                    <div className="p-3 bg-muted/30 rounded-lg">
-                      <div className="text-sm font-medium mb-2">Distribution Preview:</div>
+
+                  {watchedValues.interestDistribution === key &&
+                  previewDistribution.length > 0 ? (
+                    <div className="rounded-lg bg-muted/30 p-3">
+                      <div className="mb-2 text-sm font-medium">
+                        Distribution Preview:
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {previewDistribution.map((value, index) => (
                           <Badge
                             key={index}
                             variant="outline"
-                            className={value > 0 ? 'border-success text-success' : value < 0 ? 'border-destructive text-destructive' : ''}
+                            className={
+                              value > 0
+                                ? 'border-success text-success'
+                                : value < 0
+                                  ? 'border-destructive text-destructive'
+                                  : ''
+                            }
                           >
-                            Month {index + 1}: {value > 0 ? '+' : ''}{value}
+                            Month {index + 1}: {value > 0 ? '+' : ''}
+                            {value}
                           </Badge>
                         ))}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Sum: {previewDistribution.reduce((sum, val) => sum + val, 0)} (must equal 0)
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Sum:{' '}
+                        {previewDistribution.reduce((sum, val) => sum + val, 0)}{' '}
+                        (must equal 0)
                       </div>
                     </div>
-                  ): null}
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -495,23 +581,29 @@ export function CreateRondaForm() {
       {estimatedGas && estimatedGasCost ? (
         <Card className="border-l-4 border-l-info">
           <CardContent className="p-4">
-            <div className="flex items-center space-x-2 mb-2">
+            <div className="mb-2 flex items-center space-x-2">
               <TrendingUp className="h-4 w-4 text-info" />
-              <span className="text-sm font-medium text-info">Gas Estimation</span>
+              <span className="text-sm font-medium text-info">
+                Gas Estimation
+              </span>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Estimated Gas:</span>
-                <div className="font-medium">{estimatedGas.toLocaleString()} units</div>
+                <div className="font-medium">
+                  {estimatedGas.toLocaleString()} units
+                </div>
               </div>
               <div>
                 <span className="text-muted-foreground">Estimated Cost:</span>
-                <div className="font-medium">{parseFloat(estimatedGasCost).toFixed(6)} ETH</div>
+                <div className="font-medium">
+                  {parseFloat(estimatedGasCost).toFixed(6)} ETH
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
-      ): null}
+      ) : null}
 
       {/* Error Display */}
       {error && (
@@ -522,7 +614,7 @@ export function CreateRondaForm() {
       )}
 
       {/* Form Actions */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row">
         <Button
           type="submit"
           disabled={isLoading || !tokenInfo || !!tokenError}
@@ -531,17 +623,17 @@ export function CreateRondaForm() {
         >
           {isLoading ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               Creating RONDA...
             </>
           ) : (
             <>
-              <DollarSign className="h-4 w-4 mr-2" />
+              <DollarSign className="mr-2 h-4 w-4" />
               Create RONDA Contract
             </>
           )}
         </Button>
-        
+
         <Button
           type="button"
           variant="outline"
@@ -549,7 +641,7 @@ export function CreateRondaForm() {
           disabled={isLoading}
           size="lg"
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className="mr-2 h-4 w-4" />
           Reset Form
         </Button>
       </div>
@@ -557,12 +649,28 @@ export function CreateRondaForm() {
       {/* Form Summary */}
       <Card className="border-l-4 border-l-primary">
         <CardContent className="p-4">
-          <div className="text-sm font-medium mb-2">Creation Summary</div>
+          <div className="mb-2 text-sm font-medium">Creation Summary</div>
           <div className="space-y-1 text-sm text-muted-foreground">
-            <div>• {watchedValues.participantCount} participants contributing {watchedValues.monthlyDeposit} {tokenInfo?.symbol || 'MTK'} monthly</div>
-            <div>• {watchedValues.milestoneCount} month duration with {watchedValues.interestDistribution} interest distribution</div>
-            <div>• Entry fee of {watchedValues.entryFee} ETH per participant</div>
-            <div>• Total payout per round: {(parseFloat(watchedValues.monthlyDeposit || '0') * watchedValues.participantCount).toFixed(2)} {tokenInfo?.symbol || 'MTK'}</div>
+            <div>
+              • {watchedValues.participantCount} participants contributing{' '}
+              {watchedValues.monthlyDeposit} {tokenInfo?.symbol || 'MTK'}{' '}
+              monthly
+            </div>
+            <div>
+              • {watchedValues.milestoneCount} month duration with{' '}
+              {watchedValues.interestDistribution} interest distribution
+            </div>
+            <div>
+              • Entry fee of {watchedValues.entryFee} ETH per participant
+            </div>
+            <div>
+              • Total payout per round:{' '}
+              {(
+                parseFloat(watchedValues.monthlyDeposit || '0') *
+                watchedValues.participantCount
+              ).toFixed(2)}{' '}
+              {tokenInfo?.symbol || 'MTK'}
+            </div>
           </div>
         </CardContent>
       </Card>

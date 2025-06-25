@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { parseEther, formatEther, erc20Abi } from 'viem';
 import {
   useAccount,
@@ -9,10 +9,14 @@ import {
   useBalance,
   usePublicClient,
   useReadContract,
+  useChainId,
 } from 'wagmi';
 
+import { useCCIP } from './use-ccip';
+
 import { usePenaltyCheck } from '@/hooks/use-penalty-check';
-import { RONDA_ABI } from '@/lib/contracts';
+import { NETWORK_CONFIG, RONDA_ABI } from '@/lib/contracts';
+import { getContractJoinConfig } from '@/utils/contract-utils';
 
 export type JoinStep =
   | 'idle'
@@ -22,6 +26,11 @@ export type JoinStep =
   | 'joining'
   | 'success'
   | 'error';
+
+interface UseRoscaJoinParams {
+  contributionAmount: string; // Amount in token units (e.g., "100" for 100 USDC)
+  roscaContractAddress: string;
+}
 
 interface UseRoscaJoinReturn {
   step: JoinStep;
@@ -52,6 +61,15 @@ interface UseRoscaJoinReturn {
   // Membership verification
   isAlreadyMember: boolean;
   isCheckingMembership: boolean;
+  // Cross-chain data
+  isCrossChain: boolean;
+  userChainId: number;
+  targetChainId: number;
+  contractAddress: string;
+  ccipSupported: boolean;
+  // CCIP data
+  ccipFee: bigint | null;
+  isEstimatingCCIPFee: boolean;
   // Penalty check data
   hasPenalties: boolean;
   penaltyCount: number;
@@ -64,12 +82,13 @@ interface UseRoscaJoinParams {
   roscaContractAddress: string;
 }
 
-export function useRoscaJoin({
-  contributionAmount,
-  roscaContractAddress,
+export function useRoscaJoin({ 
+  contributionAmount, 
+  roscaContractAddress
 }: UseRoscaJoinParams): UseRoscaJoinReturn {
   const { address } = useAccount();
   const publicClient = usePublicClient();
+  const userChainId = useChainId();
   const [step, setStep] = useState<JoinStep>('idle');
   const [error, setError] = useState<string | null>(null);
   const [approvalHash, setApprovalHash] = useState<string | null>(null);
@@ -88,95 +107,220 @@ export function useRoscaJoin({
     error: penaltyError,
   } = usePenaltyCheck();
 
-  // Read contract data
-  const { data: paymentToken } = useReadContract({
+  // Read contract data - always read from target Ronda contract
+  const { data: mainChainPaymentToken } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'paymentToken',
-    query: { enabled: !!roscaContractAddress },
+    chainId: 11155111, // Sepolia
+    query: { enabled: !!roscaContractAddress }
   });
 
   const { data: entryFeeData } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'entryFee',
-    query: { enabled: !!roscaContractAddress },
+    chainId: 11155111, // Sepolia
+    query: { enabled: !!roscaContractAddress }
   });
 
-  const { data: monthlyDepositData } = useReadContract({
+  // Check if user is already a member - always check on target contract
+  const { data: membershipData, isLoading: membershipLoading } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
-    functionName: 'monthlyDeposit',
-    query: { enabled: !!roscaContractAddress },
+    functionName: 'hasParticipantJoined',
+    args: [address!],
+    chainId: 11155111, // Sepolia
+    query: { enabled: !!address && !!roscaContractAddress }
   });
-
-  // Check if user is already a member
-  const { data: membershipData, isLoading: membershipLoading } =
-    useReadContract({
-      address: roscaContractAddress as `0x${string}`,
-      abi: RONDA_ABI,
-      functionName: 'hasParticipantJoined',
-      args: [address!],
-      query: { enabled: !!address && !!roscaContractAddress },
-    });
 
   const isAlreadyMember = membershipData || false;
 
   // Determine if using ETH or ERC20
-  const isETH = paymentToken === '0x0000000000000000000000000000000000000000';
   const entryFee = entryFeeData || 0n;
-  const monthlyDeposit = monthlyDepositData || 0n;
 
-  // Parse contribution amount based on token type
-  const amountInWei = parseEther(contributionAmount || '0');
-
-  // Total required amount (entry fee + monthly deposit)
-  const totalRequiredAmount = entryFee + monthlyDeposit;
-
-  // Check balance (ETH or ERC20)
-  const { data: ethBalanceData } = useBalance({
-    address: address,
-    query: { enabled: !!address && isETH },
+  const targetChainId = NETWORK_CONFIG.SEPOLIA.chainId; // Sepolia
+  const { 
+    isCrossChain, 
+    ccipSupported, 
+    ccipFee, 
+    isEstimatingCCIPFee, 
+    contractAddress, 
+    networkConfig 
+  } = useCCIP({
+    targetChainId,
+    targetContractAddress: roscaContractAddress,
+    amount: entryFee,
   });
+
+  // Memoize derived values to prevent unnecessary recalculations
+  const totalRequiredAmount = useMemo(() => {
+    return entryFee + (ccipFee || 0n);
+  }, [entryFee, ccipFee]);
+
+  const paymentToken = useMemo(() => {
+    return isCrossChain ? networkConfig?.mainTokenAddress : mainChainPaymentToken;
+  }, [isCrossChain, networkConfig?.mainTokenAddress, mainChainPaymentToken]);
+
+  // Get contract configuration using utility function - memoized
+  const contractJoinConfig = useMemo(() => {
+    return getContractJoinConfig(
+      userChainId,
+      targetChainId,
+      roscaContractAddress,
+      contractAddress,
+      paymentToken || '0x0000000000000000000000000000000000000000',
+      isCrossChain ? entryFee : totalRequiredAmount
+    );
+  }, [userChainId, targetChainId, roscaContractAddress, contractAddress, paymentToken, isCrossChain, entryFee, totalRequiredAmount]);
 
   const { data: tokenBalanceData } = useReadContract({
     address: paymentToken as `0x${string}`,
     abi: erc20Abi,
     functionName: 'balanceOf',
     args: [address!],
-    query: { enabled: !!address && !isETH && !!paymentToken },
+    query: { enabled: !!address && !!paymentToken }
   });
 
-  const balance = isETH ? ethBalanceData?.value || 0n : tokenBalanceData || 0n;
+  // Get native token balance (ETH) for gas and CCIP fees
+  const { data: nativeBalanceData } = useBalance({
+    address: address!,
+    query: { enabled: !!address }
+  });
+
+  // Only log balance data when it actually changes
+  const prevTokenBalance = useRef<bigint | undefined>();
+  const prevNativeBalance = useRef<bigint | undefined>();
+  
+  useEffect(() => {
+    if (tokenBalanceData !== prevTokenBalance.current || nativeBalanceData?.value !== prevNativeBalance.current) {
+      console.log('💰 Balance update:', {
+        tokenBalance: tokenBalanceData?.toString(),
+        nativeBalance: nativeBalanceData?.formatted
+      });
+      prevTokenBalance.current = tokenBalanceData;
+      prevNativeBalance.current = nativeBalanceData?.value;
+    }
+  }, [tokenBalanceData, nativeBalanceData?.value, nativeBalanceData?.formatted]);
+
+  const tokenBalance = tokenBalanceData || 0n;
+  const nativeBalance = nativeBalanceData?.value || 0n;
+
+  // Check allowance for ERC20 - memoized
+  const spenderAddress = useMemo(() => {
+    return isCrossChain ? contractAddress : roscaContractAddress;
+  }, [isCrossChain, contractAddress, roscaContractAddress]);
 
   // Check allowance for ERC20
   const { data: allowanceData } = useReadContract({
     address: paymentToken as `0x${string}`,
     abi: erc20Abi,
     functionName: 'allowance',
-    args: [address!, roscaContractAddress as `0x${string}`],
-    query: { enabled: !!address && !isETH && !!paymentToken },
+    args: [address!, spenderAddress as `0x${string}`],
+    query: { enabled: !!address && !!paymentToken }
   });
 
-  const currentAllowance = allowanceData || 0n;
-  const needsApproval = !isETH && currentAllowance < totalRequiredAmount;
+  // Memoize allowance and approval calculations
+  const { currentAllowance, approvalAmount, needsApproval } = useMemo(() => {
+    if (
+      allowanceData === undefined ||
+      entryFee === null ||
+      totalRequiredAmount === null ||
+      isCrossChain === null
+    ) {
+      return {
+        currentAllowance: 0n,
+        approvalAmount: 0n,
+        needsApproval: false
+      };
+    }
 
-  // Calculate total cost including gas
-  const totalCostWithGas = isETH
-    ? totalRequiredAmount + (estimatedGasCost || parseEther('0.01'))
-    : estimatedGasCost || parseEther('0.01'); // For ERC20, only gas cost in ETH
+    const allowance = allowanceData;
+    // For cross-chain: need to approve entryFee amount, CCIP fee goes as ETH value
+    // For same-chain: need to approve total amount (entryFee only, no CCIP fee)
+    const approval = isCrossChain ? entryFee : totalRequiredAmount;
+    const needs = allowance < approval;
+    
+    return {
+      currentAllowance: allowance,
+      approvalAmount: approval,
+      needsApproval: needs
+    };
+  }, [allowanceData, isCrossChain, entryFee, totalRequiredAmount]);
 
-  const hasEnoughBalance = isETH
-    ? balance >= totalCostWithGas
-    : balance >= totalRequiredAmount;
+  // Only log balance analysis once per significant change to reduce spam - memoized
+  const balanceAnalysisRef = useRef<string>('');
+  const balanceAnalysisData = useMemo(() => {
+    return {
+      isCrossChain,
+      tokenBalance: tokenBalance.toString(),
+      nativeBalance: nativeBalance.toString(),
+      entryFee: entryFee.toString(),
+      ccipFee: ccipFee?.toString() || '0',
+      estimatedGasCost: estimatedGasCost?.toString() || '0',
+      approvalAmount: approvalAmount.toString(),
+      currentAllowance: currentAllowance.toString(),
+      needsApproval,
+      spenderAddress: spenderAddress,
+      paymentToken
+    };
+  }, [isCrossChain, tokenBalance, nativeBalance, entryFee, ccipFee, estimatedGasCost, approvalAmount, currentAllowance, needsApproval, spenderAddress, paymentToken]);
+  
+  // Log balance analysis only when it changes
+  useEffect(() => {
+    const balanceAnalysisKey = JSON.stringify(balanceAnalysisData);
+    if (balanceAnalysisRef.current !== balanceAnalysisKey) {
+      console.log('Balance analysis:', balanceAnalysisData);
+      balanceAnalysisRef.current = balanceAnalysisKey;
+    }
+  }, [balanceAnalysisData]);
+  
+  // Memoize balance requirements calculations
+  const { hasEnoughTokenBalance, hasEnoughNativeBalance, totalCostWithGas, hasEnoughBalance } = useMemo(() => {
+    if (
+      estimatedGasCost === null ||
+      entryFee === null ||
+      tokenBalance === null ||
+      nativeBalance === null
+    ) {
+      return { hasEnoughTokenBalance: false, hasEnoughNativeBalance: false, totalCostWithGas: 0n, hasEnoughBalance: false };
+    }
 
-  // Format values
-  const entryFeeFormatted = formatEther(entryFee);
-  const totalRequiredFormatted = formatEther(totalRequiredAmount);
-  const estimatedGasCostFormatted = estimatedGasCost
-    ? formatEther(estimatedGasCost)
-    : null;
-  const gasPriceGwei = gasPrice ? formatEther(gasPrice * 1000000000n) : null;
+    let tokenBalanceOK: boolean;
+    let nativeBalanceOK: boolean;
+    let totalCost: bigint;
+
+    if (isCrossChain) {
+      // Cross-chain: need ERC20 tokens for entry fee, native tokens for CCIP + gas
+      tokenBalanceOK = tokenBalance >= entryFee;
+      const nativeRequired = (ccipFee || 0n) + (estimatedGasCost || parseEther('0.01'));
+      nativeBalanceOK = nativeBalance >= nativeRequired;
+      totalCost = nativeRequired; // Only native token cost
+    } else {
+      // Same-chain: everything is in the same token (either ERC20 or native)
+      // ERC20 token transaction (no ETH value sent, only gas)
+      tokenBalanceOK = tokenBalance >= entryFee;
+      nativeBalanceOK = nativeBalance >= (estimatedGasCost || parseEther('0.01'));
+      totalCost = estimatedGasCost || parseEther('0.01'); // Only gas cost in ETH
+    }
+
+    return {
+      hasEnoughTokenBalance: tokenBalanceOK,
+      hasEnoughNativeBalance: nativeBalanceOK,
+      totalCostWithGas: totalCost,
+      hasEnoughBalance: tokenBalanceOK && nativeBalanceOK
+    };
+  }, [isCrossChain, tokenBalance, entryFee, ccipFee, estimatedGasCost, nativeBalance]);
+
+  // Memoize formatted values
+  const { entryFeeFormatted, totalRequiredFormatted, estimatedGasCostFormatted, gasPriceGwei } = useMemo(() => {
+    return {
+      entryFeeFormatted: formatEther(entryFee),
+      totalRequiredFormatted: formatEther(totalRequiredAmount),
+      estimatedGasCostFormatted: estimatedGasCost ? formatEther(estimatedGasCost) : null,
+      gasPriceGwei: gasPrice ? formatEther(gasPrice * 1000000000n) : null
+    };
+  }, [entryFee, totalRequiredAmount, estimatedGasCost, gasPrice]);
 
   // Write contract hooks
   const {
@@ -212,15 +356,7 @@ export function useRoscaJoin({
     hash: joinTxHash,
   });
 
-  const isLoading =
-    isApprovalPending ||
-    isApprovalConfirming ||
-    isJoinPending ||
-    isJoinConfirming ||
-    isEstimatingGas ||
-    isCheckingMembership ||
-    membershipLoading ||
-    isPenaltyCheckLoading;
+  const isLoading = isApprovalPending || isApprovalConfirming || isJoinPending || isJoinConfirming || isEstimatingGas || isEstimatingCCIPFee || isCheckingMembership || membershipLoading;
 
   // Helper function to decode contract errors
   const decodeContractError = useCallback(
@@ -321,9 +457,7 @@ export function useRoscaJoin({
       const errorMessage = err.message || err.toString();
 
       if (errorMessage.includes('insufficient funds')) {
-        return isETH
-          ? 'Insufficient ETH for transaction and gas fees'
-          : 'Insufficient ETH for gas fees';
+        return 'Insufficient ETH for transaction and gas fees';
       }
 
       if (errorMessage.includes('user rejected')) {
@@ -342,10 +476,10 @@ export function useRoscaJoin({
 
       return 'Transaction failed - please try again';
     },
-    [isETH]
+    []
   );
 
-  // Enhanced gas estimation function
+  // Enhanced gas estimation function - memoized with proper dependencies
   const estimateGas = useCallback(async () => {
     if (
       !address ||
@@ -369,23 +503,78 @@ export function useRoscaJoin({
         gasPriceGwei: formatEther(currentGasPrice * 1000000000n) + ' Gwei',
       });
 
-      // Estimate gas for joinRonda
+      // If approval is needed, skip detailed gas estimation to avoid "insufficient allowance" error
+      if (needsApproval || !hasEnoughBalance || !hasEnoughTokenBalance || !hasEnoughNativeBalance) {
+        console.log('🔄 Approval needed - using fallback gas estimation...');
+        
+        // Use reasonable fallback estimates based on operation type
+        const fallbackGas = isCrossChain ? 500000n : 300000n; // Cross-chain needs more gas
+        const fallbackCost = fallbackGas * currentGasPrice;
+        
+        console.log('💸 Fallback gas cost calculation:', {
+          gasUnits: fallbackGas.toString(),
+          gasPrice: currentGasPrice.toString(),
+          totalCostWei: fallbackCost.toString(),
+          totalCostETH: formatEther(fallbackCost),
+          reason: 'Approval needed - detailed estimation skipped'
+        });
+
+        setEstimatedGas(fallbackGas);
+        setEstimatedGasCost(fallbackCost);
+        return;
+      }
+
+      // Estimate gas for joinRonda (only when no approval needed)
       console.log('🔍 Estimating gas for joinRonda contract call...');
       console.log('📝 Contract details:', {
-        address: roscaContractAddress,
-        function: 'joinRonda',
-        value: isETH ? totalRequiredAmount.toString() + ' wei' : '0 wei',
+        address: contractJoinConfig.address,
+        function: contractJoinConfig.functionName,
+        value: isCrossChain ? (ccipFee || 0n).toString() + ' wei (CCIP fee)' : '0 wei (ERC20 transaction)',
         caller: address,
-        paymentToken: isETH ? 'ETH' : paymentToken,
+        args: contractJoinConfig.args,
+        paymentToken: paymentToken,
         totalRequired: totalRequiredFormatted,
+        isCrossChain,
+        ccipFeeWei: ccipFee?.toString() || '0',
+        ccipFeeFormatted: ccipFee ? formatEther(ccipFee) + ' AVAX' : 'Not calculated',
+        userNativeBalance: nativeBalance.toString(),
+        userNativeBalanceFormatted: formatEther(nativeBalance) + ' AVAX',
+        sufficientForCCIP: isCrossChain ? (nativeBalance >= (ccipFee || 0n)) : 'N/A',
+        balanceAfterCCIP: isCrossChain && ccipFee ? formatEther(nativeBalance - ccipFee) + ' AVAX' : 'N/A'
       });
 
+      // Check if we have CCIP fee calculated for cross-chain
+      if (isCrossChain && !ccipFee) {
+        console.log('⚠️ CCIP fee not calculated yet, using fallback gas estimation...');
+        const fallbackGas = 500000n;
+        const fallbackCost = fallbackGas * currentGasPrice;
+        setEstimatedGas(fallbackGas);
+        setEstimatedGasCost(fallbackCost);
+        return;
+      }
+
+      // For cross-chain, validate that we have sufficient native balance for the CCIP fee
+      if (isCrossChain && ccipFee) {
+        const requiredNative = ccipFee + parseEther('0.005'); // CCIP fee + small buffer for gas
+        if (nativeBalance < requiredNative) {
+          console.log('💰 Insufficient native balance for CCIP fee:', {
+            required: formatEther(requiredNative),
+            available: formatEther(nativeBalance),
+            ccipFee: formatEther(ccipFee)
+          });
+          setError(`Insufficient native balance for cross-chain transaction. Need ${formatEther(requiredNative)} AVAX, but only have ${formatEther(nativeBalance)} AVAX.`);
+          setStep('error');
+          return;
+        }
+      }
+
       const gasEstimate = await publicClient.estimateContractGas({
-        address: roscaContractAddress as `0x${string}`,
-        abi: RONDA_ABI,
-        functionName: 'joinRonda',
+        address: contractJoinConfig.address as `0x${string}`,
+        abi: contractJoinConfig.abi,
+        functionName: contractJoinConfig.functionName,
+        args: contractJoinConfig.args,
         account: address,
-        value: isETH ? totalRequiredAmount : 0n, // Send ETH only if using ETH
+        value: isCrossChain ? (ccipFee || 0n) : 0n, // CCIP fee for cross-chain, 0 for same-chain ERC20
       });
 
       console.log('✅ Gas estimation from contract:', {
@@ -412,6 +601,34 @@ export function useRoscaJoin({
       const decodedError = decodeContractError(err);
       console.log('🔍 Decoded error message:', decodedError);
 
+      // Handle specific RondaSender balance error (CCIP fee insufficient)
+      if (decodedError.includes('Insufficient balance') && isCrossChain) {
+        const requiredAmount = ccipFee ? formatEther(ccipFee + parseEther('0.005')) : '~0.02';
+        // setError(`Insufficient native balance for cross-chain transaction. Need approximately ${requiredAmount} AVAX for CCIP fees.`);
+        // setStep('error');
+        return;
+      }
+
+      // Don't set error state for allowance issues during gas estimation
+      if (decodedError.includes('insufficient allowance')) {
+        console.log('💡 Allowance error during gas estimation - using fallback...');
+        
+        let fallbackGasPrice: bigint;
+        try {
+          fallbackGasPrice = await publicClient.getGasPrice();
+          setGasPrice(fallbackGasPrice);
+        } catch {
+          fallbackGasPrice = parseEther('0.000000020'); // 20 Gwei fallback
+        }
+
+        const fallbackGas = isCrossChain ? 500000n : 300000n;
+        const fallbackCost = fallbackGas * fallbackGasPrice;
+
+        setEstimatedGas(fallbackGas);
+        setEstimatedGasCost(fallbackCost);
+        return;
+      }
+
       setError(decodedError);
 
       // Use fallback gas estimation for network errors only
@@ -434,7 +651,7 @@ export function useRoscaJoin({
           fallbackGasPrice = parseEther('0.000000020'); // 20 Gwei fallback
         }
 
-        const fallbackGas = 300000n; // 300k gas units for ERC20 operations
+        const fallbackGas = isCrossChain ? 500000n : 300000n;
         const fallbackCost = fallbackGas * fallbackGasPrice;
 
         setEstimatedGas(fallbackGas);
@@ -448,11 +665,17 @@ export function useRoscaJoin({
     publicClient,
     contributionAmount,
     roscaContractAddress,
-    totalRequiredAmount,
-    isETH,
+    needsApproval,
+    isCrossChain,
+    contractJoinConfig,
     paymentToken,
     totalRequiredFormatted,
+    ccipFee,
+    nativeBalance,
     decodeContractError,
+    hasEnoughBalance,
+    hasEnoughTokenBalance,
+    hasEnoughNativeBalance
   ]);
 
   // Check membership when parameters change
@@ -474,7 +697,10 @@ export function useRoscaJoin({
       step === 'idle' &&
       !isAlreadyMember &&
       !membershipLoading &&
-      !hasPenalties
+      !hasPenalties &&
+      allowanceData !== undefined && // Wait for allowance data to load
+      contractJoinConfig.address && // Ensure contract config is ready
+      (!isCrossChain || ccipFee !== null) // Wait for CCIP fee estimation if cross-chain
     ) {
       estimateGas();
     }
@@ -486,7 +712,11 @@ export function useRoscaJoin({
     isAlreadyMember,
     membershipLoading,
     hasPenalties,
-    estimateGas,
+    allowanceData,
+    contractJoinConfig.address,
+    isCrossChain,
+    ccipFee,
+    estimateGas
   ]);
 
   const reset = useCallback(() => {
@@ -533,10 +763,15 @@ export function useRoscaJoin({
     }
 
     if (!hasEnoughBalance) {
-      const tokenSymbol = isETH ? 'ETH' : 'USDC';
-      setError(
-        `Insufficient ${tokenSymbol} balance. Need ${totalRequiredFormatted} ${tokenSymbol} total.`
-      );
+      if (isCrossChain) {
+        if (!hasEnoughTokenBalance) {
+          setError(`Insufficient ${paymentToken === networkConfig?.mainTokenAddress ? 'token' : 'ERC20'} balance. Need ${entryFeeFormatted} tokens for entry fee.`);
+        } else {
+          setError(`Insufficient ETH balance. Need ${formatEther((ccipFee || 0n) + (estimatedGasCost || parseEther('0.01')))} ETH for CCIP fee and gas.`);
+        }
+      } else {
+        setError(`Insufficient balance. Need ${totalRequiredFormatted} total.`);
+      }
       setStep('error');
       return;
     }
@@ -579,19 +814,20 @@ export function useRoscaJoin({
 
         console.log('🔐 Approving ERC20 tokens:', {
           token: paymentToken,
-          spender: roscaContractAddress,
-          amount: totalRequiredAmount.toString(),
-          tokenSymbol: 'USDC',
+          spender: spenderAddress,
+          amount: approvalAmount.toString(),
+          amountFormatted: formatEther(approvalAmount),
+          tokenSymbol: isCrossChain ? 'Token' : 'USDC',
         });
 
         writeApproval({
           address: paymentToken as `0x${string}`,
           abi: erc20Abi,
           functionName: 'approve',
-          args: [roscaContractAddress as `0x${string}`, totalRequiredAmount],
+          args: [spenderAddress as `0x${string}`, approvalAmount],
         });
 
-        return; // Wait for approval to complete
+        return; 
       }
 
       // Step 2: Join RONDA
@@ -602,21 +838,28 @@ export function useRoscaJoin({
         totalRequiredAmount: totalRequiredAmount.toString(),
         roscaContractAddress,
         userAddress: address,
-        isETH,
         paymentToken,
         entryFee: entryFeeFormatted,
         estimatedGas: estimatedGas?.toString(),
+        isCrossChain,
+        contractAddress: contractJoinConfig.address,
+        contractAbi: isCrossChain ? 'RondaSender' : 'Ronda',
+        transactionValue: isCrossChain ? ccipFee?.toString() || '0' : '0'
       });
 
       const gasConfig = estimatedGas ? { gas: estimatedGas } : {};
 
+      console.log('joinConfig', contractJoinConfig);
+      
       writeJoin({
-        address: roscaContractAddress as `0x${string}`,
-        abi: RONDA_ABI,
-        functionName: 'joinRonda',
-        value: isETH ? totalRequiredAmount : 0n, // Send ETH only if using ETH
-        ...gasConfig,
+        address: contractJoinConfig.address as `0x${string}`,
+        abi: contractJoinConfig.abi,
+        functionName: contractJoinConfig.functionName,
+        args: contractJoinConfig.args,
+        value: isCrossChain ? (ccipFee || 0n) : 0n, // CCIP fee for cross-chain, 0 for same-chain ERC20
+        ...gasConfig
       });
+
     } catch (err: any) {
       console.error('❌ Error in join flow:', err);
       const decodedError = decodeContractError(err);
@@ -631,31 +874,65 @@ export function useRoscaJoin({
     penaltyCount,
     isAlreadyMember,
     hasEnoughBalance,
-    totalRequiredAmount,
-    totalRequiredFormatted,
-    isETH,
-    needsApproval,
-    estimatedGas,
+    hasEnoughTokenBalance,
+    isCrossChain,
     paymentToken,
+    networkConfig?.mainTokenAddress,
     entryFeeFormatted,
+    totalRequiredFormatted,
+    ccipFee,
+    estimatedGasCost,
+    estimatedGas,
     estimateGas,
+    needsApproval,
+    spenderAddress,
+    approvalAmount,
     writeApproval,
+    totalRequiredAmount,
+    contractJoinConfig,
     writeJoin,
-    decodeContractError,
+    decodeContractError
   ]);
-
-  // Handle approval transaction submission
-  useEffect(() => {
-    if (approvalTxHash) {
-      setApprovalHash(approvalTxHash);
-      console.log('📋 Approval transaction submitted:', approvalTxHash);
-    }
-  }, [approvalTxHash]);
 
   // Handle approval success - proceed to join
   useEffect(() => {
     if (isApprovalConfirmed && step === 'approving') {
       console.log('✅ Token approval confirmed, proceeding to join...');
+
+      // Re-estimate gas now that approval is done
+      const reEstimateGasAfterApproval = async () => {
+        try {
+          console.log('🔄 Re-estimating gas after approval...');
+          
+          if (!publicClient || !address) {return;}
+          
+          const gasEstimate = await publicClient.estimateContractGas({
+            address: contractJoinConfig.address as `0x${string}`,
+            abi: contractJoinConfig.abi,
+            functionName: contractJoinConfig.functionName,
+            args: contractJoinConfig.args,
+            account: address,
+            value: 0n,
+          });
+
+          const gasWithBuffer = (gasEstimate * 120n) / 100n;
+          const currentGasPrice = await publicClient.getGasPrice();
+          const totalGasCost = gasWithBuffer * currentGasPrice;
+
+          console.log('✅ Post-approval gas estimation:', {
+            gasEstimate: gasEstimate.toString(),
+            gasWithBuffer: gasWithBuffer.toString(),
+            totalCostETH: formatEther(totalGasCost),
+          });
+
+          setEstimatedGas(gasWithBuffer);
+          setEstimatedGasCost(totalGasCost);
+        } catch (err) {
+          console.log('⚠️ Could not re-estimate gas after approval, using existing estimate');
+        }
+      };
+
+      reEstimateGasAfterApproval();
 
       // Proceed to join step
       setStep('joining');
@@ -663,22 +940,15 @@ export function useRoscaJoin({
       const gasConfig = estimatedGas ? { gas: estimatedGas } : {};
 
       writeJoin({
-        address: roscaContractAddress as `0x${string}`,
-        abi: RONDA_ABI,
-        functionName: 'joinRonda',
-        value: isETH ? totalRequiredAmount : 0n,
-        ...gasConfig,
+        address: contractJoinConfig.address as `0x${string}`,
+        abi: contractJoinConfig.abi,
+        functionName: contractJoinConfig.functionName,
+        args: contractJoinConfig.args,
+        value: isCrossChain ? ccipFee! : 0n,
+        ...gasConfig
       });
     }
-  }, [
-    isApprovalConfirmed,
-    step,
-    estimatedGas,
-    roscaContractAddress,
-    totalRequiredAmount,
-    isETH,
-    writeJoin,
-  ]);
+  }, [isApprovalConfirmed, step, estimatedGas, contractJoinConfig, writeJoin, totalRequiredAmount, isCrossChain, ccipFee, publicClient, address]);
 
   // Handle join transaction submission
   useEffect(() => {
@@ -698,8 +968,7 @@ export function useRoscaJoin({
 
   // Handle errors with enhanced decoding
   useEffect(() => {
-    const currentError =
-      approvalError || joinError || approvalReceiptError || joinReceiptError;
+    const currentError = approvalError || joinError || approvalReceiptError || joinReceiptError;
     if (currentError && step !== 'error') {
       console.error('❌ Transaction error:', currentError);
 
@@ -709,14 +978,7 @@ export function useRoscaJoin({
       setError(decodedError);
       setStep('error');
     }
-  }, [
-    approvalError,
-    joinError,
-    approvalReceiptError,
-    joinReceiptError,
-    step,
-    decodeContractError,
-  ]);
+  }, [approvalError, joinError, approvalReceiptError, joinReceiptError, step, decodeContractError]);
 
   return {
     step,
@@ -742,6 +1004,13 @@ export function useRoscaJoin({
     totalRequiredFormatted,
     isAlreadyMember,
     isCheckingMembership,
+    isCrossChain,
+    userChainId,
+    targetChainId,
+    contractAddress,
+    ccipSupported,
+    ccipFee,
+    isEstimatingCCIPFee,  
     // Penalty check data
     hasPenalties,
     penaltyCount,

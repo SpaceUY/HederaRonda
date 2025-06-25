@@ -14,8 +14,8 @@ contract RondaSender is Ownable, InteroperableRondaInterface {
     using SafeERC20 for IERC20;
 
     // CCIP variables
-    IRouterClient private immutable router;
-    uint64 private immutable destinationChainSelector;
+    IRouterClient public immutable router;
+    uint64 public immutable destinationChainSelector;
 
     // Events
     event MessageSent(bytes32 messageId);
