@@ -583,7 +583,7 @@ export function useRoscaJoin({
       });
 
       // Add safety buffer (20% extra)
-      const gasWithBuffer = (gasEstimate * 120n) / 100n;
+      const gasWithBuffer = (gasEstimate * 150n) / 100n;
       const totalGasCost = gasWithBuffer * currentGasPrice;
 
       console.log('💸 Total gas cost calculation:', {
@@ -856,7 +856,7 @@ export function useRoscaJoin({
         abi: contractJoinConfig.abi,
         functionName: contractJoinConfig.functionName,
         args: contractJoinConfig.args,
-        value: isCrossChain ? (ccipFee || 0n) * 130n / 100n : 0n, // CCIP fee for cross-chain, 0 for same-chain ERC20
+        value: isCrossChain ? (ccipFee || 0n) * 160n / 100n : 0n, // CCIP fee for cross-chain, 0 for same-chain ERC20
         ...gasConfig
       });
 

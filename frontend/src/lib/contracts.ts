@@ -109,7 +109,7 @@ export const FACTORY_ABI = [
 
 // Contract addresses
 export const CONTRACT_ADDRESSES = {
-  PROXY_FACTORY: "0x4634eDc4A49205859aafc170672c4758B2Ebc1A2",
+  PROXY_FACTORY: "0xFd4F11F5B27B7a5e9c8Ce8784ebbFC180F129064",
 } as const;
 
 // Network configuration
