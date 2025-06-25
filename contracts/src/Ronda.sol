@@ -26,6 +26,24 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
         uint256 requiredDeposits;
     }
 
+    struct RondaConfig {
+        uint256 participantCount;
+        uint256 milestoneCount;
+        uint256 monthlyDeposit;
+        uint256 entryFee;
+        int256[] interestDistribution;
+        address paymentToken;
+        address penaltyToken;
+    }
+
+    struct ChainlinkConfig {
+        address router;
+        address vrfCoordinator;
+        uint256 subscriptionId;
+        bytes32 keyHash;
+        uint32 callbackGasLimit;
+    }
+
     // State variables
     RondaState public currentState;
     uint256 public participantCount;
@@ -78,62 +96,52 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
     );
 
     constructor(
-        uint256 _participantCount,
-        uint256 _milestoneCount,
-        uint256 _monthlyDeposit,
-        uint256 _entryFee,
-        int256[] memory _interestDistribution,
-        address _paymentToken,
-        address _penaltyToken,
-        address _router,
-        address _vrfCoordinator,
-        uint256 _subscriptionId,
-        bytes32 _keyHash,
-        uint32 _callbackGasLimit
-    ) CCIPReceiver(_router) VRFConsumerBaseV2Plus(_vrfCoordinator) {
+        RondaConfig memory _rondaConfig,
+        ChainlinkConfig memory _chainlinkConfig
+    ) CCIPReceiver(_chainlinkConfig.router) VRFConsumerBaseV2Plus(_chainlinkConfig.vrfCoordinator) {
         require(
-            _participantCount > 0,
+            _rondaConfig.participantCount > 0,
             "Participant count must be greater than 0"
         );
-        require(_milestoneCount > 0, "Milestone count must be greater than 0");
-        require(_monthlyDeposit > 0, "Monthly deposit must be greater than 0");
-        require(_entryFee > 0, "Entry fee must be greater than 0");
+        require(_rondaConfig.milestoneCount > 0, "Milestone count must be greater than 0");
+        require(_rondaConfig.monthlyDeposit > 0, "Monthly deposit must be greater than 0");
+        require(_rondaConfig.entryFee > 0, "Entry fee must be greater than 0");
         require(
-            _interestDistribution.length == _milestoneCount,
+            _rondaConfig.interestDistribution.length == _rondaConfig.milestoneCount,
             "Interest distribution length must match milestone count"
         );
 
         // Check that sum of interest distribution equals 0
         int256 sum = 0;
-        for (uint256 i = 0; i < _interestDistribution.length; i++) {
-            sum += _interestDistribution[i];
+        for (uint256 i = 0; i < _rondaConfig.interestDistribution.length; i++) {
+            sum += _rondaConfig.interestDistribution[i];
         }
         require(sum == 0, "Sum of interest distribution must equal 0");
 
-        participantCount = _participantCount;
-        milestoneCount = _milestoneCount;
-        monthlyDeposit = _monthlyDeposit;
-        entryFee = _entryFee;
-        interestDistribution = _interestDistribution;
-        paymentToken = IERC20(_paymentToken);
-        penaltyToken = RondaSBT(_penaltyToken);
+        participantCount = _rondaConfig.participantCount;
+        milestoneCount = _rondaConfig.milestoneCount;
+        monthlyDeposit = _rondaConfig.monthlyDeposit;
+        entryFee = _rondaConfig.entryFee;
+        interestDistribution = _rondaConfig.interestDistribution;
+        paymentToken = IERC20(_rondaConfig.paymentToken);
+        penaltyToken = RondaSBT(_rondaConfig.penaltyToken);
         factory = msg.sender;
         
         // Initialize VRF variables
-        subscriptionId = _subscriptionId;
-        keyHash = _keyHash;
-        callbackGasLimit = _callbackGasLimit;
+        subscriptionId = _chainlinkConfig.subscriptionId;
+        keyHash = _chainlinkConfig.keyHash;
+        callbackGasLimit = _chainlinkConfig.callbackGasLimit;
         requestConfirmations = 3;
         numWords = 1;
         
         _changeState(RondaState.Open);
 
         // Initialize milestones
-        for (uint256 i = 0; i < _milestoneCount; i++) {
+        for (uint256 i = 0; i < _rondaConfig.milestoneCount; i++) {
             milestones[i] = Milestone({
                 isComplete: false,
                 totalDeposits: 0,
-                requiredDeposits: _participantCount
+                requiredDeposits: _rondaConfig.participantCount
             });
         }
     }

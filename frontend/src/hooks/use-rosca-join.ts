@@ -856,7 +856,7 @@ export function useRoscaJoin({
         abi: contractJoinConfig.abi,
         functionName: contractJoinConfig.functionName,
         args: contractJoinConfig.args,
-        value: isCrossChain ? (ccipFee || 0n) : 0n, // CCIP fee for cross-chain, 0 for same-chain ERC20
+        value: isCrossChain ? (ccipFee || 0n) * 130n / 100n : 0n, // CCIP fee for cross-chain, 0 for same-chain ERC20
         ...gasConfig
       });
 
@@ -944,7 +944,7 @@ export function useRoscaJoin({
         abi: contractJoinConfig.abi,
         functionName: contractJoinConfig.functionName,
         args: contractJoinConfig.args,
-        value: isCrossChain ? ccipFee! : 0n,
+        value: isCrossChain ? ccipFee! * 2n : 0n,
         ...gasConfig
       });
     }
