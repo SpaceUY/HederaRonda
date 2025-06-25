@@ -14,6 +14,9 @@ export const PENALTY_CONTRACT = {
   network: 'sepolia',
 } as const;
 
+// Track if we've logged a clean penalty check to reduce spam
+let hasLoggedCleanCheck = false;
+
 export interface PenaltyCheckResult {
   hasPenalties: boolean;
   penaltyCount: number;
@@ -63,17 +66,22 @@ export async function checkPenaltyTokens(
     const balance = await penaltyContract?.balanceOf?.(walletAddress);
     const penaltyCount = Number(balance);
 
-    console.log('✅ Penalty token check result:', {
+    const result = {
       address: walletAddress,
       penaltyCount,
       hasPenalties: penaltyCount > 0,
-    });
-
-    return {
-      hasPenalties: penaltyCount > 0,
-      penaltyCount,
       isLoading: false,
     };
+
+    // Only log if there are penalties or on first check
+    if (result.hasPenalties || !hasLoggedCleanCheck) {
+      console.log('✅ Penalty token check result:', result);
+      if (!result.hasPenalties) {
+        hasLoggedCleanCheck = true;
+      }
+    }
+
+    return result;
   } catch (error: any) {
     console.error('❌ Error checking penalty tokens:', error);
 

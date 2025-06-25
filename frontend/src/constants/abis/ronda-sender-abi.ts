@@ -29,6 +29,13 @@ export const RONDA_SENDER_ABI = [
   },
   {
     "type": "function",
+    "name": "destinationChainSelector",
+    "inputs": [],
+    "outputs": [{ "name": "", "type": "uint64", "internalType": "uint64" }],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "joinRonda",
     "inputs": [
       {
@@ -55,6 +62,19 @@ export const RONDA_SENDER_ABI = [
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "router",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IRouterClient"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -137,4 +157,4 @@ export const RONDA_SENDER_ABI = [
       { "name": "token", "type": "address", "internalType": "address" }
     ]
   }
-] as const; 
+] as const;

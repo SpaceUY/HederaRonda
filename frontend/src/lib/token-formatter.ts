@@ -7,6 +7,7 @@ interface TokenInfo {
   symbol: string;
   decimals: number;
   address: string;
+  _loggedCache?: boolean;
 }
 
 interface PaymentTokenCache {
@@ -23,6 +24,7 @@ interface EntryFeeCache {
 // Global caches to avoid repeated contract calls
 const paymentTokenCache: PaymentTokenCache = {};
 const entryFeeCache: EntryFeeCache = {};
+const tokenInfoCache: { [address: string]: TokenInfo } = {};
 
 // Standard ERC20 ABI for token info
 const ERC20_ABI = [
@@ -47,95 +49,82 @@ export class TokenFormatter {
    * Get token information directly from an ERC20 token address
    */
   async getTokenInfoFromAddress(tokenAddress: string): Promise<TokenInfo> {
-    // Check cache first using token address as key
-    if (paymentTokenCache[tokenAddress]) {
-      console.log('📋 Using cached token info for address:', tokenAddress);
-      return paymentTokenCache[tokenAddress] || {
-        symbol: 'MTK',
-        decimals: 6,
-        address: '0x0000000000000000000000000000000000000000',
-      };
+    // Check cache first 
+    if (tokenInfoCache[tokenAddress]) {
+      // Only log cache hits occasionally to reduce spam
+      const shouldLog = Math.random() < 0.1; // Log ~10% of cache hits
+      if (shouldLog) {
+        console.log('✅ Token info cached:', {
+          address: tokenAddress,
+          symbol: tokenInfoCache[tokenAddress].symbol,
+          decimals: tokenInfoCache[tokenAddress].decimals
+        });
+      }
+      return tokenInfoCache[tokenAddress];
     }
 
     try {
       console.log('🔍 Fetching token info for address:', tokenAddress);
 
-      // Check if it's ETH (zero address)
-      if (tokenAddress === ethers.ZeroAddress) {
-        const tokenInfo: TokenInfo = {
-          symbol: 'ETH',
-          decimals: 18,
-          address: ethers.ZeroAddress,
-        };
-        
-        // Cache the result
-        paymentTokenCache[tokenAddress] = tokenInfo;
-        console.log('✅ ETH token info cached');
-        
-        return tokenInfo;
-      }
-
-      // Get token symbol and decimals from ERC20 contract
       const tokenContract = new ethers.Contract(
         tokenAddress,
         ERC20_ABI,
         this.provider
       );
 
+      // Fetch token details
       const [symbol, decimals] = await Promise.all([
         tokenContract?.symbol?.(),
         tokenContract?.decimals?.(),
       ]);
 
       const tokenInfo: TokenInfo = {
-        symbol,
-        decimals: Number(decimals),
+        symbol: symbol || 'UNKNOWN',
+        decimals: Number(decimals) || 18, // Ensure decimals is always a regular number
         address: tokenAddress,
       };
 
       // Cache the result
-      paymentTokenCache[tokenAddress] = tokenInfo;
+      tokenInfoCache[tokenAddress] = tokenInfo;
       
       console.log('✅ Token info cached:', {
         address: tokenAddress,
-        symbol,
-        decimals: Number(decimals),
+        symbol: tokenInfo.symbol,
+        decimals: tokenInfo.decimals
       });
 
       return tokenInfo;
     } catch (error: any) {
-      console.error('❌ Error fetching token info from address:', error);
+      console.error('❌ Error fetching token info:', error);
       
-      // Fallback to MTK defaults
+      // Fallback to MTK token defaults  
       const fallbackInfo: TokenInfo = {
         symbol: 'MTK',
-        decimals: 6,
+        decimals: 18,
         address: tokenAddress,
       };
       
-      paymentTokenCache[tokenAddress] = fallbackInfo;
+      tokenInfoCache[tokenAddress] = fallbackInfo;
       return fallbackInfo;
     }
   }
 
   /**
-   * Get payment token information from a RONDA contract
+   * Fetch payment token info for a RONDA contract
+   * Uses caching to avoid redundant network calls
    */
   async getPaymentTokenInfo(contractAddress: string): Promise<TokenInfo> {
     // Check cache first
     if (paymentTokenCache[contractAddress]) {
-      console.log('📋 Using cached payment token info for:', contractAddress);
-      return paymentTokenCache[contractAddress] || {
-        symbol: 'MTK',
-        decimals: 6,
-        address: '0x0000000000000000000000000000000000000000',
-      };
+      // Only log on first cache hit to reduce spam
+      if (!paymentTokenCache[contractAddress]._loggedCache) {
+        console.log('📋 Using cached payment token info for:', contractAddress);
+        paymentTokenCache[contractAddress]._loggedCache = true;
+      }
+      return paymentTokenCache[contractAddress];
     }
 
     try {
-      console.log('🔍 Fetching payment token info for contract:', contractAddress);
-
-      // Get payment token address from RONDA contract
       const rondaContract = new ethers.Contract(
         contractAddress,
         RONDA_TOKEN_ABI,
@@ -143,13 +132,12 @@ export class TokenFormatter {
       );
 
       const paymentTokenAddress = await rondaContract?.paymentToken?.();
-      console.log('💰 Payment token address:', paymentTokenAddress);
-
+      
       // Use the direct token info method
       const tokenInfo = await this.getTokenInfoFromAddress(paymentTokenAddress);
 
       // Cache the result using the RONDA contract address as key
-      paymentTokenCache[contractAddress] = tokenInfo;
+      paymentTokenCache[contractAddress] = { ...tokenInfo, _loggedCache: false };
       
       console.log('✅ Payment token info cached for RONDA:', {
         contract: contractAddress,
@@ -165,6 +153,7 @@ export class TokenFormatter {
         symbol: 'MTK',
         decimals: 6,
         address: '0x0000000000000000000000000000000000000000',
+        _loggedCache: false
       };
       
       paymentTokenCache[contractAddress] = fallbackInfo;
@@ -179,7 +168,8 @@ export class TokenFormatter {
   formatAmount(rawAmount: string | bigint, decimals: number, symbol: string): string {
     try {
       const amount = typeof rawAmount === 'string' ? BigInt(rawAmount) : rawAmount;
-      const divisor = BigInt(10 ** decimals);
+      const decimalNum = Number(decimals);
+      const divisor = BigInt(10) ** BigInt(decimalNum);
       const formatted = Number(amount) / Number(divisor);
 
       // Format based on token type and amount size
@@ -226,7 +216,8 @@ export class TokenFormatter {
   async formatMonthlyDeposit(contractAddress: string, rawAmount: string | bigint): Promise<string> {
     try {
       const tokenInfo = await this.getPaymentTokenInfo(contractAddress);
-      return this.formatAmount(rawAmount, tokenInfo.decimals, tokenInfo.symbol);
+      const decimalNum = Number(tokenInfo.decimals);
+      return this.formatAmount(rawAmount, decimalNum, tokenInfo.symbol);
     } catch (error) {
       console.error('❌ Error formatting monthly deposit:', error);
       return '0 MTK';
@@ -299,7 +290,8 @@ export class TokenFormatter {
     try {
       const tokenInfo = await this.getPaymentTokenInfo(contractAddress);
       const amount = typeof rawAmount === 'string' ? BigInt(rawAmount) : rawAmount;
-      const divisor = BigInt(10 ** tokenInfo.decimals);
+      const decimalNum = Number(tokenInfo.decimals);
+      const divisor = BigInt(10) ** BigInt(decimalNum);
       return Number(amount) / Number(divisor);
     } catch (error) {
       console.error('❌ Error getting numeric amount:', error);
@@ -320,9 +312,12 @@ export class TokenFormatter {
       const monthlyAmount = await this.getNumericAmount(contractAddress, monthlyDeposit);
       const totalAmount = monthlyAmount * participantCount;
       
-      // Convert back to proper format
-      const totalAmountBigInt = BigInt(Math.floor(totalAmount * (10 ** tokenInfo.decimals)));
-      return this.formatAmount(totalAmountBigInt, tokenInfo.decimals, tokenInfo.symbol);
+      // Convert back to proper format - ensure decimals is a regular number
+      const decimalNum = Number(tokenInfo.decimals);
+      const multiplier = Math.pow(10, decimalNum);
+      const totalAmountBigInt = BigInt(Math.floor(totalAmount * multiplier));
+      
+      return this.formatAmount(totalAmountBigInt, decimalNum, tokenInfo.symbol);
     } catch (error) {
       console.error('❌ Error formatting total contribution:', error);
       return '0 MTK';
@@ -355,20 +350,21 @@ export class TokenFormatter {
     try {
       // Get token info once for all amounts
       const tokenInfo = await this.getPaymentTokenInfo(contractAddress);
+      const decimalNum = Number(tokenInfo.decimals);
       
       const results = await Promise.all(amounts.map(async ({ rawAmount, type, participantCount }) => {
         switch (type) {
           case 'monthly':
-            return this.formatAmount(rawAmount, tokenInfo.decimals, tokenInfo.symbol);
+            return this.formatAmount(rawAmount, decimalNum, tokenInfo.symbol);
           case 'entry':
             return await this.formatEntryFee(contractAddress);
           case 'total':
             if (participantCount) {
               return await this.formatTotalContribution(contractAddress, rawAmount, participantCount);
             }
-            return this.formatAmount(rawAmount, tokenInfo.decimals, tokenInfo.symbol);
+            return this.formatAmount(rawAmount, decimalNum, tokenInfo.symbol);
           default:
-            return this.formatAmount(rawAmount, tokenInfo.decimals, tokenInfo.symbol);
+            return this.formatAmount(rawAmount, decimalNum, tokenInfo.symbol);
         }
       }));
 

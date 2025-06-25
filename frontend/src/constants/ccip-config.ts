@@ -32,7 +32,7 @@ export const CCIP_NETWORKS: CCIPConfig = {
     name: 'Avalanche Fuji',
     chainId: 43113,
     chainSelector: "14767482510784806043", // Avalanche Fuji chain selector
-    rondaSenderAddress: '0x41360E44AB68a6A2A73766b7e37227d35B2B30f5', // TODO: Deploy RondaSender on Avalanche Fuji
+    rondaSenderAddress: '0x8b1c0794001262f1688be4002773bc669a1db87d', //'0x41360E44AB68a6A2A73766b7e37227d35B2B30f5', // TODO: Deploy RondaSender on Avalanche Fuji
     routerAddress: '0xF694E193200268f9a4868e4Aa017A0118C9a8177', // Avalanche Fuji CCIP Router
     linkTokenAddress: '0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846', // Avalanche Fuji LINK
     mainTokenAddress: '0xD21341536c5cF5EB1bcb58f6723cE26e8D8E90e4', // Avalanche Fuji Token

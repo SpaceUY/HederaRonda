@@ -1,7 +1,7 @@
 'use client';
 
 import * as CCIP from '@chainlink/ccip-js';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { formatEther } from 'viem';
 import { useAccount, usePublicClient, useChainId } from 'wagmi';
 
@@ -9,7 +9,8 @@ import {
   getCCIPNetworkConfig, 
   needsCrossChainCommunication, 
   getContractAddress,
-  isCCIPSupported 
+  isCCIPSupported, 
+  CCIPNetworkConfig
 } from '@/constants/ccip-config';
 
 export interface CCIPState {
@@ -17,9 +18,8 @@ export interface CCIPState {
   ccipSupported: boolean;
   ccipFee: bigint | null;
   isEstimatingCCIPFee: boolean;
-  needsCCIPApproval: boolean;
   contractAddress: string;
-  networkConfig: any;
+  networkConfig: CCIPNetworkConfig | null;
 }
 
 export interface UseCCIPParams {
@@ -40,10 +40,12 @@ export function useCCIP({
   // CCIP-related state
   const [ccipFee, setCcipFee] = useState<bigint | null>(null);
   const [isEstimatingCCIPFee, setIsEstimatingCCIPFee] = useState(false);
-  const [needsCCIPApproval, setNeedsCCIPApproval] = useState(false);
 
   // Initialize CCIP client
   const ccipClient = CCIP.createClient();
+  
+  // Track last estimation to prevent duplicate calls
+  const lastEstimationKey = useRef<string>('');
 
   // Cross-chain configuration
   const isCrossChain = needsCrossChainCommunication(userChainId, targetChainId);
@@ -104,55 +106,31 @@ export function useCCIP({
     } finally {
       setIsEstimatingCCIPFee(false);
     }
-  }, [address, publicClient, isCrossChain, ccipSupported, networkConfig, sepoliaNetworkConfig, ccipClient, amount, targetContractAddress, userChainId, targetChainId]);
-
-  // Check CCIP approval status
-  const checkCCIPApproval = useCallback(async () => {
-    if (!address || !isCrossChain || !ccipSupported || !networkConfig || !publicClient) {
-      return;
-    }
-
-    try {
-      // Check if user has approved the router to spend their LINK tokens
-      const allowance = await publicClient.readContract({
-        address: networkConfig.linkTokenAddress as `0x${string}`,
-        abi: [
-          {
-            "type": "function",
-            "name": "allowance",
-            "inputs": [
-              { "name": "owner", "type": "address" },
-              { "name": "spender", "type": "address" }
-            ],
-            "outputs": [{ "name": "", "type": "uint256" }],
-            "stateMutability": "view"
-          }
-        ],
-        functionName: 'allowance',
-        args: [address, networkConfig.routerAddress as `0x${string}`],
-      });
-
-      setNeedsCCIPApproval(allowance < amount);
-
-    } catch (err: any) {
-      console.error('❌ CCIP approval check failed:', err);
-      setNeedsCCIPApproval(true); // Assume approval is needed if check fails
-    }
-  }, [address, isCrossChain, ccipSupported, networkConfig, publicClient, amount]);
+  }, [address, publicClient, isCrossChain, ccipSupported, networkConfig, sepoliaNetworkConfig, ccipClient, amount, targetContractAddress]);
 
   // Estimate CCIP fee when cross-chain and parameters change
   useEffect(() => {
-    if (address && amount && targetContractAddress && isCrossChain && ccipSupported && userChainId !== targetChainId) {
+    // Only estimate if we have all required data and haven't estimated for these exact parameters yet  
+    if (address && amount > 0n && targetContractAddress && isCrossChain && ccipSupported && userChainId !== targetChainId && !isEstimatingCCIPFee) {
+      const estimationKey = `${userChainId}-${targetChainId}-${amount.toString()}-${targetContractAddress}`;
+      
+      // Skip if we've already estimated for these exact parameters
+      if (lastEstimationKey.current === estimationKey) {
+        return;
+      }
+      
       console.log('🔄 Triggering CCIP fee estimation:', {
         userChainId,
         targetChainId,
         isCrossChain,
-        ccipSupported
+        ccipSupported,
+        estimationKey
       });
+      
+      lastEstimationKey.current = estimationKey;
       estimateCCIPFee();
-      checkCCIPApproval();
     }
-  }, [address, amount, targetContractAddress, isCrossChain, ccipSupported, userChainId, targetChainId, estimateCCIPFee, checkCCIPApproval]);
+  }, [address, amount, targetContractAddress, isCrossChain, ccipSupported, userChainId, targetChainId, isEstimatingCCIPFee, estimateCCIPFee]);
 
 
   return {
@@ -160,7 +138,6 @@ export function useCCIP({
     ccipSupported,
     ccipFee,
     isEstimatingCCIPFee,
-    needsCCIPApproval,
     contractAddress,
     networkConfig
   };
