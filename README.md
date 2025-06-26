@@ -4,15 +4,32 @@ A modern, decentralized platform for rotating savings groups (RONDAs) that bring
 
 ## 🎯 What is RONDA Web3?
 
-RONDA Web3 digitizes "tandas", "panderos", and community savings circles where participants contribute to a shared pool and take turns receiving payouts. Our platform eliminates traditional trust issues through blockchain automation while preserving the social and economic benefits.
+RONDA Web3 digitizes ["tandas" (informal loan clubs)](https://en.wikipedia.org/wiki/Tanda_(informal_loan_club)), community savings circles where participants contribute to a shared pool and take turns receiving payouts. Our platform eliminates traditional trust issues through blockchain automation while preserving the social and economic benefits.
 
-## 🎨 Economic Model
+## How does RONDA Web3 work?
 
-### Slot Distribution
-- **Slots 1-4**: Auction-based early access (pay 2.5% - 10% fees)
-- **Slot 5**: Neutral slot (no fees or interest)
-- **Slot 6**: Neutral slot (no fees or interest)  
-- **Slots 7-10**: VRF lottery assignment (earn 2.5% - 10% interest)
+A group of 10 people is formed, each contributing monthly (e.g., $100).
+An auction is held for the early slots (1–4), where those who want the money first pay a commission (%). Each slot guarantees a minimum commission, the rest goes to the protocol.
+Slot 5 is neutral, with no cost or gain.
+Slots 6–10 are assigned by lottery using Chainlink VRF. These receive the money at the end, but earn interest.
+The commissions paid by slots 1–4 go into a common pool and are redistributed to the protocol.
+
+
+### 📈 Example Distribution
+
+| Slot | Assignment      | Fee / Interest |
+|------|----------------|---------------|
+| 1    | Auction        | Pays >=+10%   |
+| 2    | Auction        | Pays >=+7.5%  |
+| 3    | Auction        | Pays >=+5%    |
+| 4    | Auction        | Pays >=+2.5%  |
+| 5    | Neutral        | 0%            |
+| 6    | Neutral        | 0%            |
+| 7    | Lottery (VRF)  | Earns +2.5%   |
+| 8    | Lottery (VRF)  | Earns +5%     |
+| 9    | Lottery (VRF)  | Earns +7.5%   |
+| 10   | Lottery (VRF)  | Earns +10%    |
+
 
 ### Revenue Streams
 - Auction fees from early slot premiums
@@ -76,7 +93,7 @@ RONDA-web3/
 
 The following files use Chainlink services (VRF, CCIP):
 
-- [`contracts/src/Ronda.sol`](contracts/src/Ronda.sol) — **VRF** (randomness), **CCIP** (cross-chain)
+- [`contracts/src/Ronda.sol`](contracts/src/Ronda.sol) — **VRF** (randomness), **CCIP** (cross-chain receiver)
 - [`contracts/src/RondaFactory.sol`](contracts/src/RondaFactory.sol) — **VRF** (subscription management), **CCIP** (management)
 - [`contracts/src/RondaSender.sol`](contracts/src/RondaSender.sol) — **CCIP** (message sending)
 - [`contracts/script/TransferSubscriptionOwnership.s.sol`](contracts/script/TransferSubscriptionOwnership.s.sol) — **VRF** (subscription transfer)
