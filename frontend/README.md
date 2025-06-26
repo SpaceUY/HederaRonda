@@ -1,6 +1,6 @@
 # RONDA Web3 - Decentralized Rotating Savings Platform
 
-A moderns, decentralized platform for rotating savings groups (ROSCAs) built with Next.js 14, TypeScript, and Web3 technologies.
+A moderns, decentralized platform for rotating savings groups (RONDAs) built with Next.js 14, TypeScript, and Web3 technologies.
 
 ## 🏗️ Project Architecture
 
