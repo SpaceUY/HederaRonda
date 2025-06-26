@@ -120,9 +120,37 @@ The following files use Chainlink services (VRF, CCIP):
 
 ## 🔮 Roadmap
 
-- **MVP:** 10-person RONDAs, Chainlink VRF, CCIP, identity integration
-- **Next:** Factory pattern, SBT-based reputation, mobile UI, gas optimizations
-- **Planned:** Chainlink Automation for automated payouts
+### 🛡️ Enhanced Identity Security
+On-Chain Humanity Validation
+Currently, identity verification happens once during signup. We'll implement continuous validation where each transaction requires proving you're the same verified human, regardless of which wallet you use. This prevents bad actors from creating multiple accounts or transferring verified status between wallets.
+
+### 🏆 Credit Score System
+Enhanced Reputation with Positive Tokens
+Right now, we only mark bad actors. We'll create a full credit history system where good participants earn positive reputation points. Think of it like a blockchain credit score - the more circles you complete successfully, the better rates and access you get.
+
+### 💰 Real-World Asset Support
+RWA Integration with Ondo Finance
+Instead of just using regular USDC, participants could contribute with assets that earn interest while sitting in the circle pot. For example, tokenized treasury bills that earn 4-5% annually, making the whole circle more profitable for everyone.
+
+### 🌐 Multi-Chain Expansion
+Deploy to More Blockchains
+Currently limited to Arbitrum and Ethereum. We'll expand to:
+
+- Optimism - Cheaper transactions
+- Base - Easy onramp for new crypto users
+- Polygon - Established user base
+
+This means people can join circles from whichever blockchain they prefer, increasing participation.
+
+### 🗳️ Community Governance
+$RONDA Token and DAO
+Give users voting power over important decisions like:
+
+- What fees the platform charges
+- Which new features to build first
+- How to spend protocol revenue
+
+Token holders vote on proposals, making RONDA truly community-owned rather than controlled by a single team.
 
 ---
 
