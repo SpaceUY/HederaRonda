@@ -120,9 +120,9 @@ The following files use Chainlink services (VRF, CCIP):
 
 ## 🔮 Roadmap
 
-### 🤖 Automated Payments
-Chainlink Automation Integration
-Currently, users must manually submit monthly payments. We'll implement automatic payment collection so the system can charge your wallet when payments are due (with your permission). This eliminates missed payments and keeps circles running smoothly.
+### 🛡️ Enhanced Identity Security
+On-Chain Humanity Validation
+Currently, identity verification happens once during signup. We'll implement continuous validation where each transaction requires proving you're the same verified human, regardless of which wallet you use. This prevents bad actors from creating multiple accounts or transferring verified status between wallets.
 
 ### 🏆 Credit Score System
 Enhanced Reputation with Positive Tokens
