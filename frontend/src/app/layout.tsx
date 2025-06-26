@@ -38,6 +38,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="icon" type="image/x-icon" href="favicon.png" />
+      </head>
+
       <body className="font-sans">
         <Web3Provider>
           <ErrorBoundary>
