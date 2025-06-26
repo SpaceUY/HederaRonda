@@ -8,9 +8,15 @@ import { SecuritySection } from '@/components/sections/security';
 import { BoltBadge } from '@/components/ui/bolt-badge';
 
 // Dynamically import Header to avoid SSR issues with Wagmi hooks
-const Header = dynamic(() => import('@/components/layout/header').then(mod => ({ default: mod.Header })), {
-  ssr: false,
-});
+const Header = dynamic(
+  () =>
+    import('@/components/layout/header').then((mod) => ({
+      default: mod.Header,
+    })),
+  {
+    ssr: false,
+  }
+);
 
 export default function HomePage() {
   return (
