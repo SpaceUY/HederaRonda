@@ -22,6 +22,7 @@ export interface RondaContractData {
   entryFee: string;
   entryFeeFormatted: number;
   paymentToken: string;
+  paymentTokenSymbol: string; // Add token symbol
   participants: string[];
   milestones: any[];
   maxParticipants: number; // Total allowed participants from participantCount
@@ -126,6 +127,24 @@ export function useRondaContracts(): UseRondaContractsReturn {
               rondaContract?.paymentToken?.(),
             ]);
 
+            // Fetch payment token symbol
+            let paymentTokenSymbol = 'MTK'; // Default fallback
+            if (paymentToken && paymentToken !== ethers.ZeroAddress) {
+              try {
+                const tokenContract = new ethers.Contract(
+                  paymentToken,
+                  ['function symbol() view returns (string)'],
+                  provider
+                );
+                const symbol = await tokenContract?.symbol?.();
+                paymentTokenSymbol = symbol || 'MTK';
+                console.log(`🪙 Token symbol for ${paymentToken}: ${paymentTokenSymbol}`);
+              } catch (err) {
+                console.warn(`⚠️ Could not fetch token symbol for ${paymentToken}:`, err);
+                paymentTokenSymbol = 'MTK'; // Fallback to default
+              }
+            }
+
             // Get current joined participants using joinedParticipants array
             const joinedParticipants: string[] = [];
             let currentParticipantCount = 0;
@@ -226,6 +245,7 @@ export function useRondaContracts(): UseRondaContractsReturn {
               entryFee: entryFee.toString(),
               entryFeeFormatted,
               paymentToken,
+              paymentTokenSymbol,
               participants,
               milestones,
               maxParticipants: maxParticipantsNum, // Max allowed participants
@@ -240,8 +260,10 @@ export function useRondaContracts(): UseRondaContractsReturn {
               state: rondaData.state,
               participants: `${rondaData.participantCount}/${rondaData.maxParticipants}`,
               availableSpots: rondaData.availableSpots,
-              monthlyDeposit: `${rondaData.monthlyDepositFormatted} ETH`,
-              entryFee: `${rondaData.entryFeeFormatted} ETH`,
+              monthlyDeposit: `${rondaData.monthlyDepositFormatted} ${paymentTokenSymbol}`,
+              entryFee: `${rondaData.entryFeeFormatted} ${paymentTokenSymbol}`,
+              paymentToken: rondaData.paymentToken,
+              paymentTokenSymbol: rondaData.paymentTokenSymbol,
             });
 
             return rondaData;

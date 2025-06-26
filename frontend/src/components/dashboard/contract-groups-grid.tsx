@@ -1,14 +1,31 @@
 'use client';
 
-import { Users, DollarSign, Clock, Eye, RefreshCw, AlertTriangle, Network, Award } from 'lucide-react';
+import { ethers } from 'ethers';
+import {
+  Users,
+  DollarSign,
+  Clock,
+  Eye,
+  RefreshCw,
+  AlertTriangle,
+  Network,
+  Award,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { RondaContractData } from '@/hooks/use-ronda-contracts';
+import { NETWORK_CONFIG } from '@/lib/contracts';
 import { tokenFormatter } from '@/lib/token-formatter';
 
 interface ContractGroupsGridProps {
@@ -27,14 +44,23 @@ interface FormattedAmounts {
   };
 }
 
-export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: ContractGroupsGridProps) {
-  const [formattedAmounts, setFormattedAmounts] = useState<FormattedAmounts>({});
+export function ContractGroupsGrid({
+  rondas,
+  isLoading,
+  error,
+  onRefetch,
+}: ContractGroupsGridProps) {
+  const [formattedAmounts, setFormattedAmounts] = useState<FormattedAmounts>(
+    {}
+  );
   const [isFormattingAmounts, setIsFormattingAmounts] = useState(false);
 
   // Format amounts for all RONDAs
   useEffect(() => {
     const formatAllAmounts = async () => {
-      if (rondas.length === 0) {return;}
+      if (rondas.length === 0) {
+        return;
+      }
 
       setIsFormattingAmounts(true);
       const newFormattedAmounts: FormattedAmounts = {};
@@ -43,21 +69,35 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
         await Promise.all(
           rondas.map(async (ronda) => {
             try {
-              const [monthlyDeposit, entryFee, totalContribution] = await Promise.all([
-                tokenFormatter.formatMonthlyDeposit(ronda.address, ronda.monthlyDeposit),
-                tokenFormatter.formatEntryFee(ronda.address),
-                tokenFormatter.formatTotalContribution(ronda.address, ronda.monthlyDeposit, ronda.maxParticipants),
-              ]);
+              const [monthlyDeposit, entryFee, totalContribution] =
+                await Promise.all([
+                  tokenFormatter.formatMonthlyDeposit(
+                    ronda.address,
+                    ronda.monthlyDeposit
+                  ),
+                  tokenFormatter.formatEntryFee(ronda.address),
+                  tokenFormatter.formatTotalContribution(
+                    ronda.address,
+                    ronda.monthlyDeposit,
+                    ronda.maxParticipants
+                  ),
+                ]);
 
-              // Calculate join cost (entry fee + monthly deposit)
-              const monthlyNumeric = await tokenFormatter.getNumericAmount(ronda.address, ronda.monthlyDeposit);
               const entryFeeNumeric = ronda.entryFeeFormatted;
-              const totalJoinCost = monthlyNumeric + entryFeeNumeric;
-              
+              const totalJoinCost = entryFeeNumeric;
+
               // Get token info for join cost formatting
-              const tokenInfo = await tokenFormatter.getPaymentTokenInfo(ronda.address);
-              const joinCostBigInt = BigInt(Math.floor(totalJoinCost * (10 ** tokenInfo.decimals)));
-              const joinCost = tokenFormatter.formatAmount(joinCostBigInt, tokenInfo.decimals, tokenInfo.symbol);
+              const tokenInfo = await tokenFormatter.getPaymentTokenInfo(
+                ronda.address
+              );
+              const joinCostBigInt = BigInt(
+                Math.floor(totalJoinCost * 10 ** tokenInfo.decimals)
+              );
+              const joinCost = tokenFormatter.formatAmount(
+                joinCostBigInt,
+                tokenInfo.decimals,
+                tokenInfo.symbol
+              );
 
               newFormattedAmounts[ronda.address] = {
                 monthlyDeposit,
@@ -66,13 +106,16 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                 joinCost: entryFeeNumeric > 0 ? joinCost : monthlyDeposit,
               };
             } catch (error) {
-              console.error(`❌ Error formatting amounts for ${ronda.address}:`, error);
-              // Fallback formatting
+              console.error(
+                `❌ Error formatting amounts for ${ronda.address}:`,
+                error
+              );
+              // Fallback formatting with token symbol from Ronda data
               newFormattedAmounts[ronda.address] = {
-                monthlyDeposit: `${ronda.monthlyDepositFormatted.toFixed(4)} MTK`,
-                entryFee: `${ronda.entryFeeFormatted.toFixed(4)} ETH`,
-                totalContribution: `${(ronda.monthlyDepositFormatted * ronda.maxParticipants).toFixed(4)} MTK`,
-                joinCost: `${(ronda.monthlyDepositFormatted + ronda.entryFeeFormatted).toFixed(4)} MTK`,
+                monthlyDeposit: `${ronda.monthlyDepositFormatted.toFixed(4)} ${ronda.paymentTokenSymbol}`,
+                entryFee: `${ronda.entryFeeFormatted.toFixed(4)} ${ronda.paymentTokenSymbol}`,
+                totalContribution: `${(ronda.monthlyDepositFormatted * ronda.maxParticipants).toFixed(4)} ${ronda.paymentTokenSymbol}`,
+                joinCost: `${(ronda.monthlyDepositFormatted + ronda.entryFeeFormatted).toFixed(4)} ${ronda.paymentTokenSymbol}`,
               };
             }
           })
@@ -131,16 +174,18 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
           <AlertDescription className="flex items-center justify-between">
             <span>Failed to load RONDA contracts via proxy: {error}</span>
             <Button variant="outline" size="sm" onClick={onRefetch}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="mr-2 h-4 w-4" />
               Retry
             </Button>
           </AlertDescription>
         </Alert>
-        
-        <div className="p-8 text-center bg-muted/30 rounded-lg border border-dashed">
-          <Network className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Proxy Connection Failed</h3>
-          <p className="text-muted-foreground mb-4">
+
+        <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center">
+          <Network className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+          <h3 className="mb-2 text-lg font-semibold">
+            Proxy Connection Failed
+          </h3>
+          <p className="mb-4 text-muted-foreground">
             Unable to connect to the RONDA proxy contract on Sepolia testnet.
           </p>
           <div className="space-y-2 text-sm text-muted-foreground">
@@ -157,39 +202,41 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-center p-8">
-          <div className="text-center space-y-4">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-              <RefreshCw className="h-6 w-6 text-primary animate-spin" />
+          <div className="space-y-4 text-center">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <RefreshCw className="h-6 w-6 animate-spin text-primary" />
             </div>
             <div>
               <h3 className="text-lg font-semibold">Loading RONDA Contracts</h3>
-              <p className="text-muted-foreground">Fetching data via proxy from Sepolia testnet...</p>
+              <p className="text-muted-foreground">
+                Fetching data via proxy from Sepolia testnet...
+              </p>
             </div>
           </div>
         </div>
-        
+
         {/* Loading skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <Card key={index} className="animate-pulse">
               <CardHeader className="space-y-4">
                 <div className="space-y-2">
-                  <div className="h-6 bg-muted rounded w-3/4" />
-                  <div className="h-4 bg-muted rounded w-1/2" />
+                  <div className="h-6 w-3/4 rounded bg-muted" />
+                  <div className="h-4 w-1/2 rounded bg-muted" />
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <div className="h-4 bg-muted rounded w-full" />
-                    <div className="h-6 bg-muted rounded w-2/3" />
+                    <div className="h-4 w-full rounded bg-muted" />
+                    <div className="h-6 w-2/3 rounded bg-muted" />
                   </div>
                   <div className="space-y-2">
-                    <div className="h-4 bg-muted rounded w-full" />
-                    <div className="h-6 bg-muted rounded w-2/3" />
+                    <div className="h-4 w-full rounded bg-muted" />
+                    <div className="h-6 w-2/3 rounded bg-muted" />
                   </div>
                 </div>
-                <div className="h-10 bg-muted rounded w-full" />
+                <div className="h-10 w-full rounded bg-muted" />
               </CardContent>
             </Card>
           ))}
@@ -206,17 +253,18 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
           <AlertDescription className="flex items-center justify-between">
             <span>No RONDA contracts found via proxy on Sepolia testnet</span>
             <Button variant="outline" size="sm" onClick={onRefetch}>
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
           </AlertDescription>
         </Alert>
-        
-        <div className="p-8 text-center bg-muted/30 rounded-lg border border-dashed">
-          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No RONDAs Available</h3>
-          <p className="text-muted-foreground mb-4">
-            No RONDA contracts are currently available via the proxy on Sepolia testnet.
+
+        <div className="rounded-lg border border-dashed bg-muted/30 p-8 text-center">
+          <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+          <h3 className="mb-2 text-lg font-semibold">No RONDAs Available</h3>
+          <p className="mb-4 text-muted-foreground">
+            No RONDA contracts are currently available via the proxy on Sepolia
+            testnet.
           </p>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>• Proxy Contract: 0xA2AC48Cf8113677F9D708fF91dfBB6464E386368</p>
@@ -241,41 +289,45 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
       )}
 
       {/* RONDA Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {rondas.map((ronda, index) => {
           const availableSpots = ronda.maxParticipants - ronda.participantCount;
-          const completionPercentage = (ronda.participantCount / ronda.maxParticipants) * 100;
+          const completionPercentage =
+            (ronda.participantCount / ronda.maxParticipants) * 100;
           const formatted = formattedAmounts[ronda.address];
-          
+
           return (
-            <Card key={ronda.address} className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col overflow-hidden">
-              <CardHeader className="space-y-4 flex-shrink-0 pb-4">
+            <Card
+              key={ronda.address}
+              className="group flex flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+            >
+              <CardHeader className="flex-shrink-0 space-y-4 pb-4">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-3 flex-1">
+                  <div className="flex-1 space-y-3">
                     {/* Status Badge */}
-                    <Badge 
-                      variant="outline" 
+                    <Badge
+                      variant="outline"
                       className={`${getStatusColor(ronda.state)} text-sm font-medium`}
                     >
                       {getStatusText(ronda.state)}
                     </Badge>
-                    
+
                     {/* RONDA Title */}
                     <div>
-                      <h3 className="text-xl font-bold group-hover:text-primary transition-colors">
+                      <h3 className="text-xl font-bold transition-colors group-hover:text-primary">
                         RONDA #{index + 1}
                       </h3>
-                      <div className="text-sm text-muted-foreground font-mono mt-1">
+                      <div className="mt-1 font-mono text-sm text-muted-foreground">
                         {ronda.address.slice(0, 8)}...{ronda.address.slice(-6)}
                       </div>
                     </div>
                   </div>
                 </div>
               </CardHeader>
-              
-              <CardContent className="space-y-6 flex-1 flex flex-col pt-0">
+
+              <CardContent className="flex flex-1 flex-col space-y-6 pt-0">
                 {/* Key Metrics Grid */}
-                <div className="grid grid-cols-2 gap-4 flex-shrink-0">
+                <div className="grid flex-shrink-0 grid-cols-2 gap-4">
                   {/* Participants */}
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
@@ -283,12 +335,12 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                       <span>Participants</span>
                     </div>
                     <div className="space-y-2">
-                      <div className="font-bold text-lg">
+                      <div className="text-lg font-bold">
                         {ronda.participantCount} of {ronda.maxParticipants}
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div 
-                          className="bg-primary rounded-full h-2 transition-all duration-300"
+                      <div className="h-2 w-full rounded-full bg-muted">
+                        <div
+                          className="h-2 rounded-full bg-primary transition-all duration-300"
                           style={{ width: `${completionPercentage}%` }}
                         />
                       </div>
@@ -297,15 +349,16 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Monthly Amount */}
                   <div className="space-y-2">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <DollarSign className="h-4 w-4" />
                       <span>Monthly</span>
                     </div>
-                    <div className="font-bold text-lg">
-                      {formatted?.monthlyDeposit || `${ronda.monthlyDepositFormatted.toFixed(4)} MTK`}
+                    <div className="text-lg font-bold">
+                      {formatted?.monthlyDeposit ||
+                        `${ronda.monthlyDepositFormatted.toFixed(4)} ${ronda.paymentTokenSymbol}`}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       per member
@@ -314,7 +367,7 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                 </div>
 
                 {/* Duration and Available Spots */}
-                <div className="grid grid-cols-2 gap-4 flex-shrink-0">
+                <div className="grid flex-shrink-0 grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Clock className="h-4 w-4" />
@@ -324,7 +377,7 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                       {ronda.milestoneCount} months
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                       <Users className="h-4 w-4" />
@@ -338,21 +391,26 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
 
                 {/* Basic Information - Only show for Open RONDAs */}
                 {ronda.state === 'Open' && (
-                  <div className="p-4 bg-gradient-to-r from-primary/5 to-success/5 rounded-lg border border-primary/20 flex-shrink-0">
-                    <div className="flex items-center space-x-2 mb-2">
+                  <div className="flex-shrink-0 rounded-lg border border-primary/20 bg-gradient-to-r from-primary/5 to-success/5 p-4">
+                    <div className="mb-2 flex items-center space-x-2">
                       <Award className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-sm">RONDA Details</span>
+                      <span className="text-sm font-medium">RONDA Details</span>
                     </div>
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Monthly Deposit:</span>
+                        <span className="text-muted-foreground">
+                          Monthly Deposit:
+                        </span>
                         <span className="font-semibold">
-                          {formatted?.monthlyDeposit || `${ronda.monthlyDepositFormatted.toFixed(4)} MTK`}
+                          {formatted?.monthlyDeposit ||
+                            `${ronda.monthlyDepositFormatted.toFixed(4)} ${ronda.paymentTokenSymbol}`}
                         </span>
                       </div>
                       {availableSpots > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Available Spots:</span>
+                          <span className="text-muted-foreground">
+                            Available Spots:
+                          </span>
                           <span className="font-semibold text-warning">
                             {availableSpots} remaining
                           </span>
@@ -360,16 +418,22 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                       )}
                       {ronda.entryFeeFormatted > 0 && (
                         <div className="flex justify-between">
-                          <span className="text-muted-foreground">Entry Fee:</span>
+                          <span className="text-muted-foreground">
+                            Entry Fee:
+                          </span>
                           <span className="font-semibold">
-                            {formatted?.entryFee || `${ronda.entryFeeFormatted.toFixed(3)} ETH`}
+                            {formatted?.entryFee ||
+                              `${ronda.entryFeeFormatted.toFixed(3)} ${ronda.paymentTokenSymbol}`}
                           </span>
                         </div>
                       )}
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Total Payout:</span>
+                        <span className="text-muted-foreground">
+                          Total Payout:
+                        </span>
                         <span className="font-semibold text-success">
-                          {formatted?.totalContribution || `${(ronda.monthlyDepositFormatted * ronda.maxParticipants).toFixed(4)} MTK`}
+                          {formatted?.totalContribution ||
+                            `${(ronda.monthlyDepositFormatted * ronda.maxParticipants).toFixed(4)} ${ronda.paymentTokenSymbol}`}
                         </span>
                       </div>
                     </div>
@@ -378,17 +442,19 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
 
                 {/* Progress for Active RONDAs */}
                 {ronda.state === 'Running' && (
-                  <div className="p-4 bg-warning/5 rounded-lg border border-warning/20 flex-shrink-0">
+                  <div className="flex-shrink-0 rounded-lg border border-warning/20 bg-warning/5 p-4">
                     <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="font-medium text-sm">Month Progress</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">
+                          Month Progress
+                        </span>
                         <span className="text-sm text-muted-foreground">
                           Active payments
                         </span>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div 
-                          className="bg-warning rounded-full h-2 transition-all duration-300"
+                      <div className="h-2 w-full rounded-full bg-muted">
+                        <div
+                          className="h-2 rounded-full bg-warning transition-all duration-300"
                           style={{ width: '75%' }} // Mock progress
                         />
                       </div>
@@ -402,24 +468,26 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
                 {/* Action Button - pushed to bottom */}
                 <div className="mt-auto pt-4">
                   {ronda.state === 'Open' ? (
-                    <Button 
-                      className="w-full group-hover:bg-primary/90 transition-colors text-base font-semibold py-6"
+                    <Button
+                      className="w-full py-6 text-base font-semibold transition-colors group-hover:bg-primary/90"
                       asChild
                     >
                       <Link href={`/group/${ronda.address}`}>
-                        <DollarSign className="h-4 w-4 mr-2" />
-                        Join for {formatted?.joinCost || `${(ronda.monthlyDepositFormatted + ronda.entryFeeFormatted).toFixed(4)} MTK`}
+                        <DollarSign className="mr-2 h-4 w-4" />
+                        Join for{' '}
+                        {formatted?.joinCost ||
+                          `${ronda.entryFeeFormatted.toFixed(4)} ${ronda.paymentTokenSymbol}`}
                       </Link>
                     </Button>
                   ) : (
-                    <Button 
+                    <Button
                       variant="outline"
-                      className="w-full group-hover:bg-accent transition-colors"
+                      className="w-full transition-colors group-hover:bg-accent"
                       disabled={ronda.state === 'Aborted'}
                       asChild
                     >
                       <Link href={`/group/${ronda.address}`}>
-                        <Eye className="h-4 w-4 mr-2" />
+                        <Eye className="mr-2 h-4 w-4" />
                         View Details
                       </Link>
                     </Button>
@@ -432,15 +500,21 @@ export function ContractGroupsGrid({ rondas, isLoading, error, onRefetch }: Cont
       </div>
 
       {/* Proxy Information Footer */}
-      <div className="mt-8 p-4 bg-info/5 rounded-lg border border-info/20">
-        <div className="flex items-center space-x-2 mb-2">
+      <div className="mt-8 rounded-lg border border-info/20 bg-info/5 p-4">
+        <div className="mb-2 flex items-center space-x-2">
           <Network className="h-4 w-4 text-info" />
-          <span className="font-medium text-info text-sm">Connected via Proxy</span>
+          <span className="text-sm font-medium text-info">
+            Connected via Proxy
+          </span>
         </div>
-        <div className="text-xs text-muted-foreground space-y-1">
+        <div className="space-y-1 text-xs text-muted-foreground">
           <div>Proxy Contract: 0xA2AC48Cf8113677F9D708fF91dfBB6464E386368</div>
-          <div>Network: Sepolia Testnet • Live data from RONDA smart contracts</div>
-          <div>Token amounts dynamically formatted from payment token contracts</div>
+          <div>
+            Network: Sepolia Testnet • Live data from RONDA smart contracts
+          </div>
+          <div>
+            Token amounts dynamically formatted from payment token contracts
+          </div>
         </div>
       </div>
     </div>

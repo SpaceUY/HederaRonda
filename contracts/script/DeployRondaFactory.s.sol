@@ -25,6 +25,8 @@ contract DeployRondaFactory is Script {
         bytes32 keyHash = vm.envBytes32("VRF_KEY_HASH");
         uint32 callbackGasLimit = uint32(vm.envUint("VRF_CALLBACK_GAS_LIMIT"));
         address router = vm.envAddress("CCIP_ROUTER");
+        uint64 chainSelector = uint64(vm.envUint("SOURCE_CHAIN_SELECTOR"));
+        address senderContract = vm.envAddress("SENDER_CONTRACT_ADDRESS");
 
         // Start broadcasting transactions
         vm.createSelectFork("sepolia");
@@ -62,6 +64,9 @@ contract DeployRondaFactory is Script {
 
         // Transfer RondaSBT ownership to the factory
         penaltyToken.transferOwnership(address(factory));
+
+        // Add default supported chains
+        factory.addDefaultSupportedChain(chainSelector, senderContract);
 
         vm.stopBroadcast();
 
