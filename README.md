@@ -93,6 +93,7 @@ RONDA-web3/
 
 The following files use Chainlink services (VRF, CCIP):
 
+- [`frontend/src/hooks/use-ccip.ts`](frontend/src/hooks/use-ccip.ts) — **CCIP** (CCIP getFee)
 - [`contracts/src/Ronda.sol`](contracts/src/Ronda.sol) — **VRF** (randomness), **CCIP** (cross-chain receiver)
 - [`contracts/src/RondaFactory.sol`](contracts/src/RondaFactory.sol) — **VRF** (subscription management), **CCIP** (management)
 - [`contracts/src/RondaSender.sol`](contracts/src/RondaSender.sol) — **CCIP** (message sending)
@@ -100,6 +101,7 @@ The following files use Chainlink services (VRF, CCIP):
 - [`contracts/test/CCIPChainManagement.t.sol`](contracts/test/CCIPChainManagement.t.sol) — **VRF/CCIP** (testing)
 - [`contracts/test/RondaFactory.t.sol`](contracts/test/RondaFactory.t.sol) — **VRF/CCIP** (testing)
 - [`contracts/test/CCIPRonda.t.sol`](contracts/test/CCIPRonda.t.sol) — **CCIP** (testing)
+- [`contracts/test/Ronda.t.sol`](contracts/test/Ronda.t.sol) — **VRF/CCIP** (testing)
 
 ## 🛡️ Security
 
@@ -119,6 +121,10 @@ The following files use Chainlink services (VRF, CCIP):
 - Automated penalty application
 
 ## 🔮 Roadmap
+
+### 🤖 Automated Payments
+Chainlink Automation Integration
+Currently, Ronda admins needs to submit the ronda delivery milestone by milestone mannualy. We'll implement automatic payment delivery so the system can send the payment on time and deliver penalties automatically. This eliminates the need of manual work in the whole application flow.
 
 ### 🛡️ Enhanced Identity Security
 On-Chain Humanity Validation
