@@ -16,12 +16,23 @@ export interface CCIPConfig {
 
 // CCIP Network Configuration
 export const CCIP_NETWORKS: CCIPConfig = {
+  // Hedera Testnet
+  296: {
+    name: 'Hedera Testnet',
+    chainId: 296,
+    chainSelector: "222782988166878823", // Destination chain selector (Sepolia)
+    rondaSenderAddress: '0xc8824bf9e61075bfe9856e39ac0131dab2007611', // Your deployed RondaSender
+    routerAddress: '0x802C5F84eAD128Ff36fD6a3f8a418e339f467Ce4', // Hedera CCIP Router
+    linkTokenAddress: '0x90a386d59b9A6a4795a011e8f032Fc21ED6FEFb6', // No LINK token on Hedera yet
+    mainTokenAddress: '0x01Ac06943d2B8327a7845235Ef034741eC1Da352', // Use native HBAR
+    isTestnet: true,
+  },
   // Sepolia Testnet (Ethereum)
   11155111: {
     name: 'Sepolia',
     chainId: 11155111,
     chainSelector: "16015286601757825753", // Sepolia chain selector
-    rondaSenderAddress: '0x0000000000000000000000000000000000000000', // TODO: Deploy RondaSender on Sepolia
+    rondaSenderAddress: '0x0000000000000000000000000000000000000000', // Not needed on destination chain
     routerAddress: '0x0BF3dE8c5D3e8A2B34D2BEeB17ABfCeBaf363A59', // Sepolia CCIP Router
     linkTokenAddress: '0x779877A7B0D9E8603169DdbD7836e478b4624789', // Sepolia LINK
     mainTokenAddress: '0xFd57b4ddBf88a4e07fF4e34C487b99af2Fe82a05', // Sepolia Token

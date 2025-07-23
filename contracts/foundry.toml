@@ -34,6 +34,8 @@ bytecode_hash = "ipfs"
 sepolia = "${SEPOLIA_RPC_URL}"
 mainnet = "${MAINNET_RPC_URL}"
 avalanche-fuji = "${AVALANCHE_FUJI_RPC_URL}"
+hedera-testnet = "${HEDERA_TESTNET_RPC_URL}"
+hedera-mainnet = "${HEDERA_MAINNET_RPC_URL}"
 
 [etherscan]
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
@@ -47,3 +49,9 @@ gas_reports = ["*"]
 gas_limit = 30000000
 block_gas_limit = 30000000
 gas_price = 1000000000  # 1 gwei
+
+# Deployment configuration for Hedera
+[profile.hedera]
+gas_reports = ["*"]
+gas_limit = 1000000  # Adjust based on Hedera's requirements
+gas_price = 100000000  # Adjust based on Hedera's pricing model

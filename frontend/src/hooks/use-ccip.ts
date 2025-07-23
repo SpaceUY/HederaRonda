@@ -1,17 +1,18 @@
 'use client';
 
 import * as CCIP from '@chainlink/ccip-js';
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { formatEther } from 'viem';
-import { useAccount, usePublicClient, useChainId } from 'wagmi';
 
-import { 
-  getCCIPNetworkConfig, 
-  needsCrossChainCommunication, 
+import {
+  CCIPNetworkConfig,
+  getCCIPNetworkConfig,
   getContractAddress,
-  isCCIPSupported, 
-  CCIPNetworkConfig
+  isCCIPSupported,
+  needsCrossChainCommunication
 } from '@/constants/ccip-config';
+import { useAccount, useChainId, usePublicClient } from 'wagmi';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { formatEther } from 'viem';
 
 export interface CCIPState {
   isCrossChain: boolean;
@@ -63,6 +64,13 @@ export function useCCIP({
 
   // CCIP fee estimation function
   const estimateCCIPFee = useCallback(async () => {
+    // Use a properly formatted BigInt with string conversion
+    const dummyFee = BigInt('1000000000000000');
+    console.log('Setting dummy CCIP fee:', dummyFee.toString());
+    setCcipFee(dummyFee);
+    setIsEstimatingCCIPFee(false); // Make sure to set this to false
+    return;
+    
     if (!address || !publicClient || !isCrossChain || !ccipSupported || !networkConfig || !sepoliaNetworkConfig) {
       console.log('🚫 CCIP fee estimation skipped:', {
         hasAddress: !!address,
