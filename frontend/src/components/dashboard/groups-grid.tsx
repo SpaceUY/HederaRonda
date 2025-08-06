@@ -1,40 +1,48 @@
-import { Calendar, Users, DollarSign, Clock, Eye } from 'lucide-react';
-import Link from 'next/link';
+import { Calendar, Clock, DollarSign, Eye, Users } from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { formatCurrency, formatDate } from '@/lib/utils';
 import { Group } from '@/local-data';
+import Link from 'next/link';
 
 interface GroupsGridProps {
   groups: Group[];
 }
 
 export function GroupsGrid({ groups }: GroupsGridProps) {
-  const getStatusColor = (status: Group['status']) => {
-    switch (status) {
-      case 'recruiting':
-        return 'bg-warning/10 text-warning border-warning/20';
-      case 'active':
+  const getStatusColor = (state: Group['state']) => {
+    switch (state) {
+      case 'Open':
         return 'bg-success/10 text-success border-success/20';
-      case 'completed':
-        return 'bg-muted text-muted-foreground border-border';
+      case 'Running':
+        return 'bg-warning/10 text-warning border-warning/20';
+      case 'Finalized':
+        return 'bg-info/10 text-info border-info/20';
+      case 'Aborted':
+        return 'bg-destructive/10 text-destructive border-destructive/20';
+      case 'Randomizing':
+        return 'bg-primary/10 text-primary border-primary/20';
       default:
         return 'bg-muted text-muted-foreground border-border';
     }
   };
 
-  const getStatusText = (status: Group['status']) => {
-    switch (status) {
-      case 'recruiting':
-        return 'Recruiting';
-      case 'active':
-        return 'Active';
-      case 'completed':
-        return 'Completed';
+  const getStatusText = (state: Group['state']) => {
+    switch (state) {
+      case 'Open':
+        return '🟢 Open for Registration';
+      case 'Running':
+        return '🟡 Active - Monthly Payments';
+      case 'Finalized':
+        return '✅ Successfully Completed';
+      case 'Aborted':
+        return '❌ Cancelled';
+      case 'Randomizing':
+        return '🔄 Assigning Positions...';
       default:
-        return status;
+        return state;
     }
   };
 
@@ -52,9 +60,9 @@ export function GroupsGrid({ groups }: GroupsGridProps) {
                 </div>
                 <Badge 
                   variant="outline" 
-                  className={getStatusColor(group.status)}
+                  className={getStatusColor(group.state)}
                 >
-                  {getStatusText(group.status)}
+                  {getStatusText(group.state)}
                 </Badge>
               </div>
             </div>
@@ -69,12 +77,12 @@ export function GroupsGrid({ groups }: GroupsGridProps) {
                   <span>Members</span>
                 </div>
                 <div className="font-semibold">
-                  {group.memberCount}/{group.maxMembers}
+                  {group.participantCount}/{group.maxParticipants}
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div 
                     className="bg-primary rounded-full h-2 transition-all duration-300"
-                    style={{ width: `${(group.memberCount / group.maxMembers) * 100}%` }}
+                    style={{ width: `${(group.participantCount / group.maxParticipants) * 100}%` }}
                   />
                 </div>
               </div>
@@ -85,7 +93,7 @@ export function GroupsGrid({ groups }: GroupsGridProps) {
                   <span>Monthly</span>
                 </div>
                 <div className="font-semibold">
-                  {formatCurrency(group.monthlyContribution, group.currency)}
+                  {formatCurrency(group.monthlyDepositFormatted, group.tokenSymbol)}
                 </div>
                 <div className="text-xs text-muted-foreground">
                   per member
@@ -98,10 +106,10 @@ export function GroupsGrid({ groups }: GroupsGridProps) {
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center space-x-2 text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  <span>Next round</span>
+                  <span>Start date</span>
                 </div>
                 <span className="font-medium">
-                  {formatDate(group.nextRoundStart, { month: 'short', day: 'numeric' })}
+                  {formatDate(group.startDate, { month: 'short', day: 'numeric' })}
                 </span>
               </div>
               
@@ -120,10 +128,10 @@ export function GroupsGrid({ groups }: GroupsGridProps) {
             <div className="mt-auto pt-4">
               <Button 
                 className="w-full group-hover:bg-primary/90 transition-colors"
-                disabled={group.status === 'completed'}
+                disabled={group.state === 'Finalized' || group.state === 'Aborted'}
                 asChild
               >
-                <Link href={`/group/${group.id}`}>
+                <Link href={`/group/${group.address}`}>
                   <Eye className="h-4 w-4 mr-2" />
                   View Details
                 </Link>

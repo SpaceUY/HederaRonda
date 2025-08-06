@@ -1,10 +1,8 @@
-import { RONDA_SENDER_ABI } from '@/constants/abis/ronda-sender-abi';
-import { needsCrossChainCommunication } from '@/constants/ccip-config';
 import { RONDA_ABI } from '@/lib/contracts';
 
-export interface ContractConfig {
+interface ContractJoinConfig {
   address: string;
-  abi: any;
+  abi: typeof RONDA_ABI;
   functionName: string;
   args: any[];
 }
@@ -12,30 +10,17 @@ export interface ContractConfig {
 export function getContractJoinConfig(
   userChainId: number,
   targetChainId: number,
-  targetContractAddress: string,
-  contractAddress: string,
+  roscaContractAddress: string,
+  spenderAddress: string,
   paymentToken: string,
-  amount: bigint
-): ContractConfig {
-  const isCrossChain = needsCrossChainCommunication(userChainId, targetChainId);
-  
-  if (isCrossChain) {
-    // Use RondaSender for cross-chain communication
-    return {
-      address: contractAddress,
-      abi: RONDA_SENDER_ABI,
-      functionName: 'joinRonda',
-      args: [targetContractAddress as `0x${string}`, paymentToken as `0x${string}`, amount]
-    };
-  } else {
-    // Use direct Ronda contract for same-chain communication
-    return {
-      address: targetContractAddress,
-      abi: RONDA_ABI,
-      functionName: 'joinRonda',
-      args: []
-    };
-  }
+  totalRequiredAmount: bigint
+): ContractJoinConfig {
+  return {
+    address: roscaContractAddress,
+    abi: RONDA_ABI,
+    functionName: 'joinRonda',
+    args: []
+  };
 }
 
 export function getContractDepositConfig(

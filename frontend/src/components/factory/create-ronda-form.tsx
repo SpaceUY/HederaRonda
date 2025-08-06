@@ -1,26 +1,17 @@
 'use client';
 
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ethers } from 'ethers';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertTriangle,
+  Calendar,
   CheckCircle,
   DollarSign,
-  Users,
-  Calendar,
-  TrendingUp,
-  Loader2,
   ExternalLink,
+  Loader2,
   RefreshCw,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -28,13 +19,23 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { INTEREST_PRESETS, InterestPreset } from '@/lib/interest-presets';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useEffect, useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { CONTRACT_ADDRESSES } from '@/lib/contracts';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
-import { useFactoryContract } from '@/hooks/use-factory-contract';
-import { INTEREST_PRESETS, InterestPreset } from '@/lib/interest-presets';
+import { ethers } from 'ethers';
 import { tokenFormatter } from '@/lib/token-formatter';
+import { useFactoryContract } from '@/hooks/use-factory-contract';
+import { useForm } from 'react-hook-form';
+import { useRouter } from 'next/navigation';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 // Form validation schema
 const createRondaSchema = z.object({
@@ -98,7 +99,7 @@ export function CreateRondaForm() {
       monthlyDeposit: '100',
       entryFee: '0.001',
       interestDistribution: 'Balanced',
-      paymentToken: '0xEBD2C9D30E212Ca76142DcE769D50674158CAc3f', // Default MTK-like token
+      paymentToken: CONTRACT_ADDRESSES.MOCK_USDC, // Mock USDC on Hedera Testnet
     },
   });
 

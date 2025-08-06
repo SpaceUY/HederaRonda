@@ -3,21 +3,16 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Client} from "chainlink-ccip/contracts/libraries/Client.sol";
-import {CCIPReceiver} from "chainlink-ccip/contracts/applications/CCIPReceiver.sol";
-import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
-import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {RondaSBT} from "./RondaSBT.sol";
 
-contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
+contract Ronda {
     using SafeERC20 for IERC20;
 
     enum RondaState {
         Open,
         Running,
         Finalized,
-        Aborted,
-        Randomizing
+        Aborted
     }
 
     struct Milestone {
@@ -36,14 +31,6 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
         address penaltyToken;
     }
 
-    struct ChainlinkConfig {
-        address router;
-        address vrfCoordinator;
-        uint256 subscriptionId;
-        bytes32 keyHash;
-        uint32 callbackGasLimit;
-    }
-
     // State variables
     RondaState public currentState;
     uint256 public participantCount;
@@ -56,49 +43,21 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
     RondaSBT public penaltyToken;
     address public factory;
 
-    // VRF variables
-    uint256 public subscriptionId;
-    bytes32 public keyHash;
-    uint32 public callbackGasLimit;
-    uint16 public requestConfirmations;
-    uint32 public numWords;
-    uint256 public lastRequestId;
-
     // Mappings
     mapping(address => bool) public hasJoined;
     mapping(address => mapping(uint256 => bool)) public milestonePaid;
     mapping(uint256 => Milestone) public milestones;
     mapping(uint256 => address) public slotToParticipant;
 
-    // CCIP variables
-    mapping(uint64 => bool) public supportedChains;
-    mapping(uint64 => address) public senderContracts;
-
     // Events
     event RondaStateChanged(RondaState newState);
     event ParticipantJoined(address indexed participant);
     event DepositMade(address indexed participant, uint256 milestone);
     event RondaDelivered(address indexed participant, uint256 milestone);
-    event RandomnessRequested(uint256 requestId);
-    event RandomnessReceived(uint256 requestId, uint256[] randomWords);
     event SlotsAssigned(address[] participants, uint256[] slots);
     event PenaltyIssued(address indexed participant, uint256 milestone);
 
-    // Events for cross-chain functions
-    event CrossChainJoinRequested(
-        address indexed participant,
-        uint64 sourceChainSelector
-    );
-    event CrossChainDepositRequested(
-        address indexed participant,
-        uint256 milestone,
-        uint64 sourceChainSelector
-    );
-
-    constructor(
-        RondaConfig memory _rondaConfig,
-        ChainlinkConfig memory _chainlinkConfig
-    ) CCIPReceiver(_chainlinkConfig.router) VRFConsumerBaseV2Plus(_chainlinkConfig.vrfCoordinator) {
+    constructor(RondaConfig memory _rondaConfig) {
         require(
             _rondaConfig.participantCount > 0,
             "Participant count must be greater than 0"
@@ -126,13 +85,6 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
         paymentToken = IERC20(_rondaConfig.paymentToken);
         penaltyToken = RondaSBT(_rondaConfig.penaltyToken);
         factory = msg.sender;
-        
-        // Initialize VRF variables
-        subscriptionId = _chainlinkConfig.subscriptionId;
-        keyHash = _chainlinkConfig.keyHash;
-        callbackGasLimit = _chainlinkConfig.callbackGasLimit;
-        requestConfirmations = 3;
-        numWords = 1;
         
         _changeState(RondaState.Open);
 
@@ -213,7 +165,7 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
         }
     }
 
-    function abortRonda() external onlyOwnerOrFactory{
+    function abortRonda() external onlyOwnerOrFactory {
         require(
             currentState != RondaState.Finalized,
             "Cannot abort finalized ronda"
@@ -232,21 +184,6 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
     ) public view returns (bool) {
         uint256 allowance = paymentToken.allowance(_participant, address(this));
         return allowance >= monthlyDeposit;
-    }
-
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256[] calldata randomWords
-    ) internal override {
-        require(requestId == lastRequestId, "Invalid request ID");
-        require(
-            currentState == RondaState.Randomizing,
-            "Ronda must be in randomizing state"
-        );
-        _assignSlots(randomWords[0]);
-        _changeState(RondaState.Running);
-        
-        emit RandomnessReceived(requestId, randomWords);
     }
 
     function _changeState(RondaState _newState) internal {
@@ -276,23 +213,8 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
     }
 
     // Function to remove penalty when participant pays their dues
-    function removePenalty(address _participant) external onlyOwnerOrFactory{
+    function removePenalty(address _participant) external onlyOwnerOrFactory {
         penaltyToken.burnPenalty(_participant);
-    }
-
-    function addSupportedChain(
-        uint64 chainSelector,
-        address senderContract
-    ) external onlyOwnerOrFactory{
-        supportedChains[chainSelector] = true;
-        senderContracts[chainSelector] = senderContract;
-    }
-
-    function removeSupportedChain(
-        uint64 chainSelector
-    ) external onlyOwnerOrFactory{
-        supportedChains[chainSelector] = false;
-        delete senderContracts[chainSelector];
     }
 
     function _depositInternal(
@@ -333,32 +255,12 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
         emit ParticipantJoined(participant);
 
         if (joinedParticipants.length == participantCount) {
-            _changeState(RondaState.Randomizing);
-            _requestRandomnessInternal();
+            _assignSlots();
+            _changeState(RondaState.Running);
         }
     }
 
-    function _requestRandomnessInternal() internal {
-        require(
-            currentState == RondaState.Randomizing,
-            "Ronda must be in randomizing state"
-        );
-        
-        VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
-            keyHash: keyHash,
-            subId: subscriptionId,
-            requestConfirmations: requestConfirmations,
-            callbackGasLimit: callbackGasLimit,
-            numWords: numWords,
-            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
-        });
-        
-        lastRequestId = s_vrfCoordinator.requestRandomWords(req);
-        
-        emit RandomnessRequested(lastRequestId);
-    }
-    
-    function _assignSlots(uint256 _randomSeed) internal {
+    function _assignSlots() internal {
         require(
             joinedParticipants.length == participantCount,
             "Not all participants have joined"
@@ -370,10 +272,18 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
             availableSlots[i] = i;
         }
 
-        // Fisher-Yates shuffle using the random seed
+        // Fisher-Yates shuffle using block-based randomness
+        // Note: This is not cryptographically secure but sufficient for our use case
+        // as the economic incentives and penalties help prevent manipulation
+        uint256 randomSeed = uint256(keccak256(abi.encodePacked(
+            block.timestamp,
+            block.prevrandao,
+            block.number,
+            joinedParticipants
+        )));
+
         for (uint256 i = participantCount - 1; i > 0; i--) {
-            uint256 j = uint256(keccak256(abi.encode(_randomSeed, i))) %
-                (i + 1);
+            uint256 j = uint256(keccak256(abi.encode(randomSeed, i))) % (i + 1);
             uint256 temp = availableSlots[i];
             availableSlots[i] = availableSlots[j];
             availableSlots[j] = temp;
@@ -387,64 +297,7 @@ contract Ronda is CCIPReceiver, VRFConsumerBaseV2Plus {
         emit SlotsAssigned(joinedParticipants, availableSlots);
     }
 
-    function _ccipReceive(
-        Client.Any2EVMMessage memory message
-    ) internal override {
-        // Verify the chain is supported
-        require(
-            supportedChains[message.sourceChainSelector],
-            "Chain not supported"
-        );
-
-        // Verify the sender contract is allowlisted
-        require(
-            senderContracts[message.sourceChainSelector] ==
-                abi.decode(message.sender, (address)),
-            "Invalid sender"
-        );
-        
-        // Verify the token received is the same as the payment token
-        Client.EVMTokenAmount memory destToken = message.destTokenAmounts[0];
-        require(
-            destToken.token == address(paymentToken),
-            "Invalid token"
-        );
-
-        // Decode the function selector and parameters
-        (bytes4 selector, bytes memory params) = abi.decode(
-            message.data,
-            (bytes4, bytes)
-        );
-
-        if (selector == this.joinRonda.selector) {
-            // Verify the amount received is the same as the entry fee
-            require(
-                destToken.amount == entryFee,
-                "Invalid amount"
-            );
-            (address participant) = abi.decode(params, (address));
-
-            _joinRondaInternal(participant);
-            emit CrossChainJoinRequested(
-                participant,
-                message.sourceChainSelector
-            );
-        } else if (selector == this.deposit.selector) {
-            // Verify the amount received is the same as the monthly deposit
-            require(
-                destToken.amount == monthlyDeposit,
-                "Invalid amount"
-            );
-            (address participant, uint256 milestone) = abi.decode(params, (address, uint256));
-
-            _depositInternal(participant, milestone);
-            emit CrossChainDepositRequested(
-                participant,
-                milestone,
-                message.sourceChainSelector
-            );
-        } else {
-            revert("Invalid function selector");
-        }
+    function owner() public view returns (address) {
+        return factory;
     }
 }

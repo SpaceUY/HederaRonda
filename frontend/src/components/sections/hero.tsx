@@ -69,7 +69,7 @@ export function HeroSection() {
                 <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center">
                   <span className="text-primary font-bold text-xs">CL</span>
                 </div>
-                <span className="text-sm font-medium">Chainlink</span>
+                <span className="text-sm font-medium">Hedera</span>
               </div>
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
@@ -95,7 +95,7 @@ export function HeroSection() {
             <div className="flex flex-wrap justify-center gap-4 pt-4">
               <div className="inline-flex items-center px-4 py-2 bg-primary/10 border border-primary/20 rounded-full text-sm font-medium text-primary">
                 <span className="w-2 h-2 bg-primary rounded-full mr-2 animate-pulse" />
-                Powered by Chainlink
+                Powered by Hedera
               </div>
               <div className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500/10 to-purple-600/10 border border-blue-500/20 rounded-full text-sm font-medium text-blue-600">
                 <span className="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse" />

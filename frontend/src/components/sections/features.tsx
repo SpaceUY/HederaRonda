@@ -27,7 +27,7 @@ const features = [
   {
     icon: Shield,
     title: 'Secure by Design',
-    description: 'Built on proven blockchain technology with smart contract audits and Chainlink oracle integration for maximum security.',
+    description: 'Built on proven blockchain technology with smart contract audits and Hedera native EVM for maximum security.',
     color: 'text-info',
     bgColor: 'bg-info/10',
   },
@@ -91,7 +91,7 @@ export function FeaturesSection() {
                 <span className="text-primary font-bold">CL</span>
               </div>
               <div className="text-left">
-                <div className="font-semibold text-sm">Chainlink Powered</div>
+                <div className="font-semibold text-sm">Hedera Powered</div>
                 <div className="text-xs text-muted-foreground">Reliable oracles</div>
               </div>
             </div>

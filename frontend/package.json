@@ -16,7 +16,6 @@
     "check-all": "npm run type-check && npm run lint && npm run format:check"
   },
   "dependencies": {
-    "@chainlink/ccip-js": "^0.2.4",
     "@hookform/resolvers": "^3.9.0",
     "@next/swc-wasm-nodejs": "14.2.5",
     "@radix-ui/react-accordion": "^1.2.0",

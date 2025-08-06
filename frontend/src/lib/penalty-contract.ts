@@ -1,17 +1,17 @@
-import { ethers } from 'ethers';
+import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from './contracts';
 
-import { NETWORK_CONFIG } from './contracts';
+import { ethers } from 'ethers';
 
 // Penalty Token Contract Configuration
 export const PENALTY_CONTRACT = {
-  address: '0xac9be968f4845c14f52e3874ccb6515f8ad45e68',
+  address: CONTRACT_ADDRESSES.PENALTY_TOKEN,
   abi: [
     'function balanceOf(address owner) view returns (uint256)',
     'function name() view returns (string)',
     'function symbol() view returns (string)',
     'function totalSupply() view returns (uint256)',
   ],
-  network: 'sepolia',
+  network: 'hedera-testnet',
 } as const;
 
 // Track if we've logged a clean penalty check to reduce spam
@@ -38,17 +38,17 @@ export async function checkPenaltyTokens(
       throw new Error('Invalid wallet address format');
     }
 
-    // Create provider for Sepolia
+    // Create provider for Hedera Testnet
     const provider = new ethers.JsonRpcProvider(
-      NETWORK_CONFIG.SEPOLIA.rpcUrl
+      NETWORK_CONFIG.HEDERA.rpcUrl
     );
 
     // Test network connection
     const network = await provider.getNetwork();
-    if (Number(network.chainId) !== NETWORK_CONFIG.SEPOLIA.chainId) {
+    if (Number(network.chainId) !== NETWORK_CONFIG.HEDERA.chainId) {
       throw new Error(
-        `Wrong network. Expected Sepolia (${
-          NETWORK_CONFIG.SEPOLIA.chainId
+        `Wrong network. Expected Hedera Testnet (${
+          NETWORK_CONFIG.HEDERA.chainId
         }), got ${Number(network.chainId)}`
       );
     }
@@ -105,7 +105,7 @@ export async function getPenaltyContractInfo(): Promise<{
 }> {
   try {
     const provider = new ethers.JsonRpcProvider(
-      NETWORK_CONFIG.SEPOLIA.rpcUrl
+      NETWORK_CONFIG.HEDERA.rpcUrl
     );
 
     const penaltyContract = new ethers.Contract(

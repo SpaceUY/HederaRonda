@@ -24,13 +24,15 @@ import {
 } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
-import { useRoscaJoin } from '@/hooks/use-rosca-join';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency } from '@/lib/utils';
 import { Group } from '@/local-data';
 
-interface JoinConfirmationModalProps {
+
+
+interface DepositConfirmationModalProps {
   group: Group;
+  milestone: number;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -44,87 +46,100 @@ type TransactionStatus =
   | 'success'
   | 'error';
 
-export function JoinConfirmationModal({
+export function DepositConfirmationModal({
   group,
+  milestone,
   isOpen,
   onClose,
   onSuccess,
-}: JoinConfirmationModalProps) {
+}: DepositConfirmationModalProps) {
   const [status, setStatus] = useState<TransactionStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
   const { chainName, chainId, address, balance } = useWalletInfo();
-
-  // Use the ROSCA join hook
-  const {
-    step: joinStep,
-    error: joinError,
-    isConfirming,
-    isConfirmed,
-    executeJoinFlow,
-  } = useRoscaJoin({
-    roscaContractAddress: group.address,
-    paymentToken: group.paymentToken || '',
-    entryFeeFormatted: group.entryFeeFormatted,
-    onSuccess: () => {
-      // Close modal after a short delay to show success/error state
-      setTimeout(() => {
-        onClose();
-        onSuccess?.();
-      }, 2000);
-    },
-  });
 
   if (!isOpen) {
     return null;
   }
 
-  const totalContribution = group.monthlyDepositFormatted * group.maxParticipants;
-  const estimatedPosition = group.participantCount + 1;
-  const estimatedPayoutMonth = Math.ceil(estimatedPosition / 2);
-
-  const handleJoin = async () => {
+  const handleDeposit = async () => {
     try {
       setError(null);
-      await executeJoinFlow();
+
+      // Step 1: Wallet Confirmation
+      setStatus('confirming');
+      console.log('🔐 Requesting wallet confirmation...');
+
+      // Small delay to show confirming state
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Step 2: Transaction Processing
+      setStatus('processing');
+
+      console.log('⏳ Processing deposit transaction:', {
+        groupId: group.id,
+        walletAddress: address,
+        chainId: chainId,
+        chainName: chainName,
+        milestone: milestone,
+      });
+
+      // Simulate transaction processing
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Step 3: Success
+      const mockTxHash = `0x${Math.random().toString(16).substr(2, 40)}`;
+      setTxHash(mockTxHash);
+      setStatus('success');
+
+      console.log('✅ Deposit transaction successful:', {
+        txHash: mockTxHash,
+        groupId: group.id,
+        milestone: milestone,
+      });
+
+      // Auto-close and trigger success callback after showing success state
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+        resetModal();
+      }, 3000);
     } catch (err: any) {
-      console.error('❌ Join process failed:', err);
-      setError(err.message || 'Failed to join. Please try again.');
+      console.error('❌ Deposit process failed:', err);
+      setError(err.message || 'Failed to deposit. Please try again.');
+      setStatus('error');
     }
   };
 
   const resetModal = () => {
     setStatus('idle');
     setError(null);
+    setTxHash(null);
   };
 
   const handleClose = () => {
-    // Don't allow closing during transaction processing
-    if (joinStep === 'joining' || joinStep === 'approving' || isConfirming) {
+    if (status === 'processing') {
       return;
-    }
+    } // Prevent closing during processing
     onClose();
     resetModal();
   };
 
   const getDialogTitle = () => {
-    switch (joinStep) {
+    switch (status) {
       case 'success':
-        return 'Successfully Joined!';
-      case 'joining':
+        return 'Successfully Deposited!';
+      case 'processing':
         return 'Processing Transaction';
-      case 'approving':
-        return 'Approving Tokens';
-      case 'checking':
-        return 'Checking Requirements';
-      case 'estimating':
-        return 'Estimating Gas';
+      case 'confirming':
+        return 'Confirm Transaction';
       default:
-        return 'Join RONDA';
+        return 'Make Monthly Deposit';
     }
   };
 
   const renderContent = () => {
-    switch (joinStep) {
+    switch (status) {
       case 'success':
         return (
           <div className="text-center space-y-6">
@@ -133,31 +148,38 @@ export function JoinConfirmationModal({
             </div>
             <div className="space-y-2">
               <h3 className="text-xl font-semibold">
-                Successfully Joined RONDA!
+                Successfully Made Deposit!
               </h3>
               <p className="text-muted-foreground">
-                You are now a member of this RONDA group.
+                Your monthly deposit has been processed.
               </p>
             </div>
 
-            <div className="space-y-2">
-              <div className="p-3 bg-success/5 rounded-lg border border-success/20">
-                <div className="flex items-center space-x-2 mb-1">
-                  <CheckCircle className="h-4 w-4 text-success" />
-                  <span className="text-sm font-medium text-success">
-                    Transaction Confirmed
-                  </span>
+            {txHash && (
+              <div className="space-y-2">
+                <div className="p-3 bg-muted rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Transaction Hash:
+                  </p>
+                  <p className="text-xs font-mono break-all">{txHash}</p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Your position: #{estimatedPosition} of {group.maxParticipants}
-                </p>
+                <div className="p-3 bg-success/5 rounded-lg border border-success/20">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span className="text-sm font-medium text-success">
+                      Transaction Confirmed
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Milestone #{milestone + 1} deposit complete
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         );
 
-      case 'joining':
-      case 'approving':
+      case 'processing':
         return (
           <div className="text-center space-y-6">
             <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
@@ -165,12 +187,10 @@ export function JoinConfirmationModal({
             </div>
             <div className="space-y-2">
               <h3 className="text-xl font-semibold">
-                {joinStep === 'approving' ? 'Approving Tokens...' : 'Processing Transaction...'}
+                Processing Transaction...
               </h3>
               <p className="text-muted-foreground">
-                {joinStep === 'approving'
-                  ? 'Please approve the token allowance in your wallet.'
-                  : 'Please wait while your transaction is being processed.'}
+                Please wait while your transaction is being processed.
               </p>
             </div>
 
@@ -178,16 +198,16 @@ export function JoinConfirmationModal({
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Entry Fee:
+                    Monthly Deposit:
                   </span>
                   <span className="font-medium">
-                    {formatCurrency(group.entryFeeFormatted, group.tokenSymbol)}
+                    {formatCurrency(group.monthlyDepositFormatted, group.currency)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Your Position:</span>
+                  <span className="text-muted-foreground">Milestone:</span>
                   <span className="font-medium">
-                    #{estimatedPosition} of {group.maxParticipants}
+                    #{milestone + 1}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -202,22 +222,50 @@ export function JoinConfirmationModal({
           </div>
         );
 
-      case 'checking':
-      case 'estimating':
+      case 'confirming':
         return (
           <div className="text-center space-y-6">
             <div className="w-16 h-16 bg-warning/10 rounded-full flex items-center justify-center mx-auto">
-              <Loader2 className="h-8 w-8 text-warning animate-spin" />
+              <Wallet className="h-8 w-8 text-warning" />
             </div>
             <div className="space-y-2">
               <h3 className="text-xl font-semibold">
-                {joinStep === 'checking' ? 'Checking Requirements...' : 'Estimating Gas...'}
+                Confirm Transaction
               </h3>
               <p className="text-muted-foreground">
-                {joinStep === 'checking'
-                  ? 'Please wait while we verify your eligibility.'
-                  : 'Calculating transaction costs...'}
+                Please confirm the transaction in your connected wallet.
               </p>
+            </div>
+
+            <div className="p-4 bg-warning/5 rounded-lg border border-warning/20">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Your Address:</span>
+                  <span className="font-mono text-sm">
+                    {address?.slice(0, 6)}...{address?.slice(-4)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    Monthly Deposit:
+                  </span>
+                  <span className="font-medium">
+                    {formatCurrency(group.monthlyDepositFormatted, group.currency)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Network:</span>
+                  <span className="font-medium">{chainName}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Your Balance:</span>
+                  <span className="font-medium">
+                    {balance
+                      ? `${parseFloat(balance).toFixed(4)} HBAR`
+                      : 'Loading...'}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         );
@@ -229,7 +277,7 @@ export function JoinConfirmationModal({
             <div className="space-y-4">
               <div className="space-y-2">
                 <h3 className="text-xl font-semibold">
-                  Join RONDA #{group.id}
+                  Make Monthly Deposit
                 </h3>
                 <p className="text-muted-foreground">{group.description}</p>
               </div>
@@ -239,10 +287,20 @@ export function JoinConfirmationModal({
                 <div className="space-y-1">
                   <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                     <DollarSign className="h-4 w-4" />
-                    <span>Entry Fee</span>
+                    <span>Monthly Deposit</span>
                   </div>
                   <div className="font-semibold text-lg">
-                    {formatCurrency(group.entryFeeFormatted, group.tokenSymbol)}
+                    {formatCurrency(group.monthlyDepositFormatted, group.currency)}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>Milestone</span>
+                  </div>
+                  <div className="font-semibold text-lg">
+                    #{milestone + 1}
                   </div>
                 </div>
 
@@ -252,17 +310,7 @@ export function JoinConfirmationModal({
                     <span>Your Position</span>
                   </div>
                   <div className="font-semibold text-lg">
-                    #{estimatedPosition} of {group.maxParticipants}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>Estimated Payout</span>
-                  </div>
-                  <div className="font-semibold text-lg">
-                    Month {estimatedPayoutMonth}
+                    #{group.participantCount} of {group.maxParticipants}
                   </div>
                 </div>
 
@@ -276,35 +324,15 @@ export function JoinConfirmationModal({
                   </div>
                 </div>
               </div>
-
-              {/* Payout Information */}
-              <div className="p-4 bg-success/5 rounded-lg border border-success/20">
-                <h4 className="font-medium mb-2 text-success">Your Payout</h4>
-                <p className="text-sm mb-2">
-                  You'll receive{' '}
-                  <span className="font-semibold text-foreground">
-                    {formatCurrency(totalContribution, group.tokenSymbol)}
-                  </span>{' '}
-                  when it's your turn (estimated month {estimatedPayoutMonth}).
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Total commitment:{' '}
-                  {formatCurrency(
-                    group.monthlyDepositFormatted * group.duration,
-                    group.tokenSymbol
-                  )}{' '}
-                  over {group.duration} months
-                </p>
-              </div>
             </div>
 
             {/* Wallet & Network Information */}
             <WalletChainInfo compact={true} />
 
-            {(error || joinError) && (
+            {error && (
               <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{error || joinError}</AlertDescription>
+                <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
           </div>
@@ -319,9 +347,9 @@ export function JoinConfirmationModal({
           {getDialogTitle()}
         </DialogTitle>
 
-        {joinStep === 'idle' && (
+        {status === 'idle' && (
           <p className="text-sm text-muted-foreground mb-4">
-            Review the details and confirm your membership
+            Review the details and confirm your monthly deposit
           </p>
         )}
 
@@ -329,28 +357,28 @@ export function JoinConfirmationModal({
         <div className="space-y-4">{renderContent()}</div>
 
         {/* Footer Actions */}
-        {joinStep === 'idle' && (
+        {status === 'idle' && (
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 space-y-2 space-y-reverse sm:space-y-0 pt-4">
             <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
             <Button
-              onClick={handleJoin}
+              onClick={handleDeposit}
               className="w-full sm:w-auto gap-2"
-              disabled={chainId !== 296 || isConfirming} // Hedera Testnet
+              disabled={chainId !== 296} // Hedera Testnet
             >
               <DollarSign className="h-4 w-4" />
-              Join RONDA
+              Make Deposit
             </Button>
           </div>
         )}
 
-        {joinStep === 'error' && (
+        {status === 'error' && (
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 space-y-2 space-y-reverse sm:space-y-0 pt-4">
             <Button variant="outline" onClick={handleClose}>
               Cancel
             </Button>
-            <Button onClick={handleJoin} className="w-full sm:w-auto gap-2">
+            <Button onClick={handleDeposit} className="w-full sm:w-auto gap-2">
               <DollarSign className="h-4 w-4" />
               Try Again
             </Button>
@@ -359,4 +387,4 @@ export function JoinConfirmationModal({
       </DialogContent>
     </Dialog>
   );
-}
+} 

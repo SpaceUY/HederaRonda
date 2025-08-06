@@ -1,25 +1,23 @@
 'use client';
 
-import { Shield, DollarSign } from 'lucide-react';
-import Link from 'next/link';
-import { useState } from 'react';
+import { DollarSign, Shield } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Group } from '@/local-data';
+import { JoinRoscaButton } from './join-rosca-button';
+import Link from 'next/link';
 import { VerificationStatus } from '@/components/wallet/verification-status';
 import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
+import { useState } from 'react';
 import { useVerification } from '@/hooks/use-verification';
 
-import { JoinConfirmationModal } from './join-confirmation-modal';
-import { JoinRoscaButton } from './join-rosca-button';
-
 interface JoinButtonProps {
-  group: any;
+  group: Group;
   isDisabled: boolean;
 }
 
 export function JoinButton({ group, isDisabled }: JoinButtonProps) {
   const { verificationState } = useVerification();
-  const [showModal, setShowModal] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
 
   // Check if user is already a member of this RONDA and if they can make deposits
@@ -27,28 +25,8 @@ export function JoinButton({ group, isDisabled }: JoinButtonProps) {
     roscaContractAddress: group.address
   });
 
-  const handleJoinClick = () => {
-    if (verificationState.isReadyToJoin) {
-      setShowModal(true);
-    }
-  };
-
   const handleJoinSuccess = () => {
     setHasJoined(true);
-  };
-
-  // Calculate the contribution amount based on token type
-  const getContributionAmount = () => {
-    // Pass the raw contract value (string) to the join component
-    return group.monthlyDeposit || "100000000"; // Raw contract value
-  };
-
-  // Get RONDA state name for display - using the same mapping as the working status functions
-  const getStateName = (state: number | null) => {
-    if (state === null) { return 'Open'; }
-    
-    const stateNames = ['Open', 'Running', 'Finalized', 'Aborted', 'Randomizing'];
-    return stateNames[state] || 'Open';
   };
 
   // If user is already a member, show contribute button (only if RONDA is running)
@@ -63,7 +41,7 @@ export function JoinButton({ group, isDisabled }: JoinButtonProps) {
         {/* Show contribute button only if RONDA is running */}
         {canMakeDeposits ? (
           <Button asChild className="w-full" variant="default">
-            <Link href={`/group/${group.address || group.id}/contribute`}>
+            <Link href={`/group/${group.address}/contribute`}>
               <DollarSign className="h-4 w-4 mr-2" />
               Make Monthly Contribution
             </Link>
@@ -78,7 +56,7 @@ export function JoinButton({ group, isDisabled }: JoinButtonProps) {
               {isRondaRunning ? (
                 'RONDA is running but deposits are not currently available'
               ) : (
-                `RONDA is ${getStateName(rondaState)} - contributions only available when Running`
+                `RONDA is ${group.state} - contributions only available when Running`
               )}
             </div>
           </div>
@@ -105,11 +83,10 @@ export function JoinButton({ group, isDisabled }: JoinButtonProps) {
         showJoinButton={false}
       />
 
-      {/* Join Button - Use new ROSCA join component */}
+      {/* Join Button */}
       {verificationState.isReadyToJoin ? (
         <JoinRoscaButton
-          contributionAmount={getContributionAmount()}
-          roscaContractAddress={group.address}
+          group={group}
           onSuccess={handleJoinSuccess}
         />
       ) : (
@@ -120,13 +97,6 @@ export function JoinButton({ group, isDisabled }: JoinButtonProps) {
           </Link>
         </Button>
       )}
-
-      <JoinConfirmationModal
-        group={group}
-        isOpen={showModal}
-        onClose={() => setShowModal(false)}
-        onSuccess={handleJoinSuccess}
-      />
     </div>
   );
 }

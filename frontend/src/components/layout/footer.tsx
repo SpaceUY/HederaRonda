@@ -68,7 +68,7 @@ export function Footer() {
             <div className="space-y-3">
               <div className="flex items-center space-x-2 text-sm">
                 <Shield className="h-4 w-4 text-success" />
-                <span className="text-muted-foreground">Chainlink Powered</span>
+                <span className="text-muted-foreground">Hedera Powered</span>
               </div>
               <div className="flex items-center space-x-2 text-sm">
                 <Users className="h-4 w-4 text-success" />

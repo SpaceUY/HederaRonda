@@ -1,15 +1,15 @@
 'use client';
 
-import { ethers } from 'ethers';
-import { useState, useEffect } from 'react';
-
 import {
-  RONDA_ABI,
-  FACTORY_ABI,
   CONTRACT_ADDRESSES,
+  FACTORY_ABI,
   NETWORK_CONFIG,
+  RONDA_ABI,
   RONDA_STATES,
 } from '@/lib/contracts';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { ethers } from 'ethers';
 
 export interface RondaContractData {
   address: string;
@@ -39,265 +39,315 @@ interface UseRondaContractsReturn {
   refetch: () => Promise<void>;
 }
 
+// Cache provider instance
+let providerInstance: ethers.JsonRpcProvider | null = null;
+
+const getProvider = async () => {
+  if (!providerInstance) {
+    providerInstance = new ethers.JsonRpcProvider(NETWORK_CONFIG.HEDERA.rpcUrl);
+    // Test connection
+    const network = await providerInstance.getNetwork();
+    if (Number(network.chainId) !== NETWORK_CONFIG.HEDERA.chainId) {
+      providerInstance = null;
+      throw new Error(`Wrong network. Expected Hedera Testnet (${NETWORK_CONFIG.HEDERA.chainId}), got ${Number(network.chainId)}`);
+    }
+  }
+  return providerInstance;
+};
+
+// Define contract types
+type RondaContract = ethers.Contract & {
+  currentState: () => Promise<number>;
+  participantCount: () => Promise<number>;
+  milestoneCount: () => Promise<number>;
+  monthlyDeposit: () => Promise<bigint>;
+  entryFee: () => Promise<bigint>;
+  paymentToken: () => Promise<string>;
+  joinedParticipants: (index: number) => Promise<string>;
+  milestones: (index: number) => Promise<[boolean, bigint, bigint]>;
+};
+
+type TokenContract = ethers.Contract & {
+  symbol: () => Promise<string>;
+  decimals: () => Promise<number>;
+};
+
+// Retry helper with exponential backoff
+const retryWithBackoff = async <T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      if (i === maxRetries - 1) {
+        throw error;
+      }
+      const delay = Math.min(1000 * Math.pow(2, i), 10000);
+      console.log(`Retrying after ${delay}ms...`, error.message);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error('Max retries reached');
+};
+
+// Cache for token details
+const tokenDetailsCache = new Map<string, { symbol: string; decimals: number }>();
+
 export function useRondaContracts(): UseRondaContractsReturn {
   const [rondas, setRondas] = useState<RondaContractData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchRondaData = async (): Promise<void> => {
+  // Use refs to store contract instances
+  const factoryContractRef = useRef<ethers.Contract | null>(null);
+  const rondaContractsRef = useRef<Map<string, RondaContract>>(new Map());
+  const tokenContractsRef = useRef<Map<string, TokenContract>>(new Map());
+
+  // Debounce the fetch
+  const fetchTimeoutRef = useRef<NodeJS.Timeout>();
+
+  const fetchRondaData = useCallback(async (): Promise<void> => {
     try {
       setIsLoading(true);
       setError(null);
 
-      console.log('🔗 Connecting to Sepolia network via proxy...');
-      console.log('🌐 Using RPC URL:', NETWORK_CONFIG.SEPOLIA.rpcUrl);
-      console.log(
-        '🔄 Using Proxy Factory Address:',
-        CONTRACT_ADDRESSES.PROXY_FACTORY
-      );
+      const provider = await retryWithBackoff(getProvider);
 
-      // Create provider for Sepolia
-      const provider = new ethers.JsonRpcProvider(
-        NETWORK_CONFIG.SEPOLIA.rpcUrl
-      );
-
-      // Test network connection
-      const network = await provider.getNetwork();
-      console.log('🌐 Connected to network:', {
-        name: network.name,
-        chainId: Number(network.chainId),
-      });
-
-      if (Number(network.chainId) !== NETWORK_CONFIG.SEPOLIA.chainId) {
-        throw new Error(
-          `Wrong network. Expected Sepolia (${
-            NETWORK_CONFIG.SEPOLIA.chainId
-          }), got ${Number(network.chainId)}`
+      // Initialize factory contract if needed
+      if (!factoryContractRef.current) {
+        factoryContractRef.current = new ethers.Contract(
+          CONTRACT_ADDRESSES.PROXY_FACTORY,
+          FACTORY_ABI,
+          provider
         );
       }
 
-      // Create proxy factory contract instance
-      const proxyFactoryContract = new ethers.Contract(
-        CONTRACT_ADDRESSES.PROXY_FACTORY,
-        FACTORY_ABI,
-        provider
-      );
-
-      console.log('📋 Fetching RONDA instances from proxy factory...');
+      const factoryContract = factoryContractRef.current;
+      if (!factoryContract) {
+        throw new Error('Failed to initialize factory contract');
+      }
 
       // Get all RONDA instances through proxy
-      const rondaCount = await proxyFactoryContract?.getRondaCount?.();
-      console.log(`📊 Found ${rondaCount} RONDA instances via proxy`);
+      const [rondaCount, rondaInstances] = await Promise.all([
+        retryWithBackoff(() => factoryContract.getRondaCount()),
+        retryWithBackoff(() => factoryContract.getRondaInstances()),
+      ]);
 
       if (Number(rondaCount) === 0) {
-        console.log('ℹ️ No RONDA instances found via proxy');
         setRondas([]);
         return;
       }
 
-      const rondaInstances = await proxyFactoryContract?.getRondaInstances?.();
-      console.log('🏭 RONDA instances via proxy:', rondaInstances);
-
       // Fetch data for each RONDA instance
-      const rondaDataPromises = rondaInstances.map(
-        async (address: string, index: number) => {
-          try {
-            console.log(`🔍 Fetching data for RONDA ${index + 1}: ${address}`);
-
-            const rondaContract = new ethers.Contract(
+      const rondaDataPromises = rondaInstances.map(async (address: string) => {
+        try {
+          // Get or create RONDA contract instance
+          let rondaContract = rondaContractsRef.current.get(address);
+          if (!rondaContract) {
+            rondaContract = new ethers.Contract(
               address,
               RONDA_ABI,
               provider
-            );
+            ) as RondaContract;
+            rondaContractsRef.current.set(address, rondaContract);
+          }
 
-            // Fetch basic contract data
-            const [
-              currentState,
-              maxParticipants, // participantCount is the max allowed
-              milestoneCount,
-              monthlyDeposit,
-              entryFee,
-              paymentToken,
-            ] = await Promise.all([
-              rondaContract?.currentState?.(),
-              rondaContract?.participantCount?.(), // This is max participants
-              rondaContract?.milestoneCount?.(),
-              rondaContract?.monthlyDeposit?.(),
-              rondaContract?.entryFee?.(),
-              rondaContract?.paymentToken?.(),
-            ]);
-
-            // Fetch payment token symbol
-            let paymentTokenSymbol = 'MTK'; // Default fallback
-            if (paymentToken && paymentToken !== ethers.ZeroAddress) {
-              try {
-                const tokenContract = new ethers.Contract(
-                  paymentToken,
-                  ['function symbol() view returns (string)'],
-                  provider
-                );
-                const symbol = await tokenContract?.symbol?.();
-                paymentTokenSymbol = symbol || 'MTK';
-                console.log(`🪙 Token symbol for ${paymentToken}: ${paymentTokenSymbol}`);
-              } catch (err) {
-                console.warn(`⚠️ Could not fetch token symbol for ${paymentToken}:`, err);
-                paymentTokenSymbol = 'MTK'; // Fallback to default
-              }
-            }
-
-            // Get current joined participants using joinedParticipants array
-            const joinedParticipants: string[] = [];
-            let currentParticipantCount = 0;
-
-            try {
-              // Try to get the length of joinedParticipants array by calling indices until we get an error
+          // Batch fetch basic contract data
+          const [
+            currentState,
+            maxParticipants,
+            milestoneCount,
+            monthlyDeposit,
+            entryFee,
+            paymentToken,
+            joinedParticipantsPromise,
+          ] = await Promise.all([
+            retryWithBackoff(() => rondaContract.currentState()),
+            retryWithBackoff(() => rondaContract.participantCount()),
+            retryWithBackoff(() => rondaContract.milestoneCount()),
+            retryWithBackoff(() => rondaContract.monthlyDeposit()),
+            retryWithBackoff(() => rondaContract.entryFee()),
+            retryWithBackoff(() => rondaContract.paymentToken()),
+            retryWithBackoff(async () => {
+              const participants: string[] = [];
               let i = 0;
               while (true) {
                 try {
-                  const participant = await rondaContract?.joinedParticipants?.(
-                    i
-                  );
-                  if (participant !== ethers.ZeroAddress) {
-                    joinedParticipants.push(participant);
-                    currentParticipantCount++;
+                  const participant = await rondaContract.joinedParticipants(i);
+                  if (!participant || participant === ethers.ZeroAddress) {
+                    break;
                   }
+                  participants.push(participant);
                   i++;
-                } catch (err) {
-                  // No more participants
+                } catch {
                   break;
                 }
               }
-            } catch (err) {
-              console.warn(`⚠️ Could not fetch joined participants:`, err);
-            }
+              return participants;
+            }),
+          ]);
 
-            // If the round is active (not Open or Randomizing), use slotToParticipant for assigned slots
-            const stateNumber = Number(currentState);
-            let participants: string[] = [];
+          const isETH = paymentToken === ethers.ZeroAddress;
+          let tokenSymbol = isETH ? 'ETH' : 'USDC';
+          let tokenDecimals = isETH ? 18 : 6;
 
-            if (stateNumber === 1 || stateNumber === 2) {
-              // Running or Finalized
-              // Use slotToParticipant for assigned participants
-              const maxParticipantsNum = Number(maxParticipants);
-              for (let i = 0; i < maxParticipantsNum; i++) {
-                try {
-                  const participant = await rondaContract?.slotToParticipant?.(
-                    i
-                  );
-                  if (participant !== ethers.ZeroAddress) {
-                    participants.push(participant);
-                  }
-                } catch (err) {
-                  console.warn(
-                    `⚠️ Could not fetch participant slot ${i}:`,
-                    err
-                  );
-                }
-              }
+          // Check cache first for token details
+          if (!isETH) {
+            const cachedDetails = tokenDetailsCache.get(paymentToken);
+            if (cachedDetails) {
+              tokenSymbol = cachedDetails.symbol;
+              tokenDecimals = cachedDetails.decimals;
             } else {
-              // Use joinedParticipants for Open or Randomizing states
-              participants = joinedParticipants;
+              // Only fetch token details if not in cache
+              try {
+                let tokenContract = tokenContractsRef.current.get(paymentToken);
+                if (!tokenContract) {
+                  tokenContract = new ethers.Contract(
+                    paymentToken,
+                    [
+                      'function symbol() view returns (string)',
+                      'function decimals() view returns (uint8)',
+                    ],
+                    provider
+                  ) as TokenContract;
+                  tokenContractsRef.current.set(paymentToken, tokenContract);
+                }
+
+                const [symbol, decimals] = await Promise.all([
+                  retryWithBackoff(async () => {
+                    const sym = await tokenContract.symbol();
+                    return sym || 'USDC';
+                  }),
+                  retryWithBackoff(async () => {
+                    const dec = await tokenContract.decimals();
+                    return Number(dec) || 6;
+                  }),
+                ]);
+
+                tokenSymbol = symbol;
+                tokenDecimals = decimals;
+
+                // Cache the token details
+                tokenDetailsCache.set(paymentToken, { symbol, decimals });
+              } catch (err) {
+                console.warn('Could not fetch token details, using defaults');
+              }
             }
+          }
 
-            // Fetch milestones
-            const milestones: any[] = [];
+          const stateNumber = Number(currentState);
+          const currentParticipantCount = joinedParticipantsPromise.length;
+          const maxParticipantsNum = Number(maxParticipants);
+
+          // Only fetch milestone data if needed
+          const milestones = await retryWithBackoff(async () => {
+            const result = [];
             const milestoneCountNum = Number(milestoneCount);
-
             for (let i = 0; i < milestoneCountNum; i++) {
               try {
-                const milestone = await rondaContract?.milestones?.(i);
-                milestones.push({
+                const milestone = await rondaContract.milestones(i);
+                if (!milestone) {
+                  break;
+                }
+                result.push({
                   index: i,
                   isCompleted: milestone[0],
                   totalDeposits: milestone[1].toString(),
                   requiredDeposits: milestone[2].toString(),
                 });
               } catch (err) {
-                console.warn(`⚠️ Could not fetch milestone ${i}:`, err);
+                console.warn(`Could not fetch milestone ${i}:`, err);
+                break;
               }
             }
+            return result;
+          });
 
-            const stateName = RONDA_STATES[stateNumber] || 'Unknown';
+          const stateName = RONDA_STATES[stateNumber] || 'Unknown';
 
-            // Format amounts from wei to ether
-            const monthlyDepositFormatted = parseFloat(
-              ethers.formatEther(monthlyDeposit)
-            );
-            const entryFeeFormatted = parseFloat(ethers.formatEther(entryFee));
+          // Format amounts based on token type
+          const monthlyDepositFormatted = isETH
+            ? parseFloat(ethers.formatEther(monthlyDeposit))
+            : Number(monthlyDeposit) / Math.pow(10, tokenDecimals);
 
-            // Calculate derived values
-            const maxParticipantsNum = Number(maxParticipants);
-            const availableSpots = maxParticipantsNum - currentParticipantCount;
-            const isActive = stateNumber === 0 || stateNumber === 1; // Open or Running
-            const nextRoundStart = new Date(
-              Date.now() + 30 * 24 * 60 * 60 * 1000
-            ); // Mock: 30 days from now
-            const duration = milestoneCountNum; // Duration equals milestone count
+          const entryFeeFormatted = isETH
+            ? parseFloat(ethers.formatEther(entryFee))
+            : Number(entryFee) / Math.pow(10, tokenDecimals);
 
-            const rondaData: RondaContractData = {
-              address,
-              state: stateName,
-              stateNumber,
-              participantCount: currentParticipantCount, // Current joined participants
-              milestoneCount: milestoneCountNum,
-              monthlyDeposit: monthlyDeposit.toString(),
-              monthlyDepositFormatted,
-              entryFee: entryFee.toString(),
-              entryFeeFormatted,
-              paymentToken,
-              paymentTokenSymbol,
-              participants,
-              milestones,
-              maxParticipants: maxParticipantsNum, // Max allowed participants
-              isActive,
-              nextRoundStart,
-              duration,
-              availableSpots,
-            };
+          // Calculate derived values
+          const availableSpots = maxParticipantsNum - currentParticipantCount;
+          const isActive = stateNumber === 0 || stateNumber === 1; // Open or Running
+          const nextRoundStart = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // Mock: 30 days from now
 
-            console.log(`✅ RONDA ${index + 1} data via proxy:`, {
-              address: rondaData.address,
-              state: rondaData.state,
-              participants: `${rondaData.participantCount}/${rondaData.maxParticipants}`,
-              availableSpots: rondaData.availableSpots,
-              monthlyDeposit: `${rondaData.monthlyDepositFormatted} ${paymentTokenSymbol}`,
-              entryFee: `${rondaData.entryFeeFormatted} ${paymentTokenSymbol}`,
-              paymentToken: rondaData.paymentToken,
-              paymentTokenSymbol: rondaData.paymentTokenSymbol,
-            });
-
-            return rondaData;
-          } catch (err: any) {
-            console.error(`❌ Error fetching RONDA ${index + 1} data:`, err);
-            return null;
-          }
+          return {
+            address,
+            state: stateName,
+            stateNumber,
+            participantCount: currentParticipantCount,
+            milestoneCount: milestones.length,
+            monthlyDeposit: monthlyDeposit.toString(),
+            monthlyDepositFormatted,
+            entryFee: entryFee.toString(),
+            entryFeeFormatted,
+            paymentToken,
+            paymentTokenSymbol: tokenSymbol,
+            participants: joinedParticipantsPromise,
+            milestones,
+            maxParticipants: maxParticipantsNum,
+            isActive,
+            nextRoundStart,
+            duration: milestones.length,
+            availableSpots,
+          };
+        } catch (err: any) {
+          console.error(`Error fetching RONDA ${address} data:`, err);
+          return null;
         }
-      );
+      });
 
       const rondaDataResults = await Promise.all(rondaDataPromises);
       const validRondas = rondaDataResults.filter(
         (ronda): ronda is RondaContractData => ronda !== null
       );
 
-      console.log(
-        `✅ Successfully fetched ${validRondas.length} RONDA instances via proxy`
-      );
       setRondas(validRondas);
     } catch (err: any) {
-      console.error('❌ Error fetching RONDA contract data via proxy:', err);
-      setError(err.message || 'Failed to fetch RONDA data via proxy');
+      console.error('Error fetching RONDA contract data:', err);
+      setError(err.message || 'Failed to fetch RONDA contract data');
+      
+      // Clear refs on error to force re-initialization
+      factoryContractRef.current = null;
+      rondaContractsRef.current.clear();
+      tokenContractsRef.current.clear();
+      providerInstance = null;
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const refetch = async (): Promise<void> => {
-    await fetchRondaData();
-  };
+  const debouncedFetch = useCallback(() => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current);
+    }
+    fetchTimeoutRef.current = setTimeout(fetchRondaData, 1000);
+  }, [fetchRondaData]);
 
   useEffect(() => {
-    fetchRondaData();
-  }, []);
+    debouncedFetch();
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [debouncedFetch]);
+
+  const refetch = useCallback(async (): Promise<void> => {
+    // Clear cache on manual refetch
+    factoryContractRef.current = null;
+    rondaContractsRef.current.clear();
+    tokenContractsRef.current.clear();
+    tokenDetailsCache.clear();
+    await fetchRondaData();
+  }, [fetchRondaData]);
 
   return {
     rondas,

@@ -1,6 +1,5 @@
-import { ethers } from 'ethers';
-
 import { NETWORK_CONFIG } from './contracts';
+import { ethers } from 'ethers';
 
 // Token information cache
 interface TokenInfo {
@@ -42,7 +41,7 @@ export class TokenFormatter {
   private provider: ethers.JsonRpcProvider;
 
   constructor() {
-    this.provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.SEPOLIA.rpcUrl);
+    this.provider = new ethers.JsonRpcProvider(NETWORK_CONFIG.HEDERA.rpcUrl);
   }
 
   /**
