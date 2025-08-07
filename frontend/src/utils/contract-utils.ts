@@ -1,19 +1,31 @@
+import { RONDA_SENDER_ABI } from '@/constants/abis/ronda-sender-abi';
 import { RONDA_ABI } from '@/lib/contracts';
 
 interface ContractJoinConfig {
   address: string;
   abi: typeof RONDA_ABI;
   functionName: string;
-  args: any[];
+  args: unknown[];
+}
+
+interface ContractConfig {
+  address: string;
+  abi: unknown;
+  functionName: string;
+  args: unknown[];
+}
+
+function needsCrossChainCommunication(userChainId: number, targetChainId: number): boolean {
+  return userChainId !== targetChainId;
 }
 
 export function getContractJoinConfig(
-  userChainId: number,
-  targetChainId: number,
+  _userChainId: number,
+  _targetChainId: number,
   roscaContractAddress: string,
-  spenderAddress: string,
-  paymentToken: string,
-  totalRequiredAmount: bigint
+  _spenderAddress: string,
+  _paymentToken: string,
+  _totalRequiredAmount: bigint
 ): ContractJoinConfig {
   return {
     address: roscaContractAddress,
@@ -35,7 +47,6 @@ export function getContractDepositConfig(
   const isCrossChain = needsCrossChainCommunication(userChainId, targetChainId);
   
   if (isCrossChain) {
-    // Use RondaSender for cross-chain communication
     return {
       address: contractAddress,
       abi: RONDA_SENDER_ABI,
@@ -43,7 +54,6 @@ export function getContractDepositConfig(
       args: [targetContractAddress as `0x${string}`, BigInt(milestone), paymentToken as `0x${string}`, amount]
     };
   } else {
-    // Use direct Ronda contract for same-chain communication
     return {
       address: targetContractAddress,
       abi: RONDA_ABI,

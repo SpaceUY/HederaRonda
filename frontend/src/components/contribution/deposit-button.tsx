@@ -1,14 +1,15 @@
 'use client';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useAccount, useChainId } from 'wagmi';
 
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DepositConfirmationModal } from './deposit-confirmation-modal';
 import { Group } from '@/local-data';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
+import { useChainId } from 'wagmi';
 import { useState } from 'react';
+import { useWagmiReady } from '@/hooks/use-wagmi-ready';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
 
 interface DepositButtonProps {
@@ -22,13 +23,14 @@ export function DepositButton({
   milestone,
   onSuccess,
 }: DepositButtonProps) {
-  const { address } = useAccount();
+  const isWagmiReady = useWagmiReady();
   const chainId = useChainId();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isConnected } = useWalletInfo();
+  
+  const effectiveChainId = isWagmiReady ? chainId : undefined;
 
-  // Check if current network is supported
-  const isNetworkSupported = chainId === 296; // Hedera Testnet
+  const isNetworkSupported = effectiveChainId === 296; // Hedera Testnet
 
   const handleClick = () => {
     setIsModalOpen(true);

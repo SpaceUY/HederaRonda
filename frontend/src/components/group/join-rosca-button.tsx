@@ -11,6 +11,7 @@ import { JoinConfirmationModal } from './join-confirmation-modal';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
 import { useParticipantCheck } from '@/hooks/use-participant-check';
 import { useRouter } from 'next/navigation';
+import { useWagmiReady } from '@/hooks/use-wagmi-ready';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
 
 interface JoinRoscaButtonProps {
@@ -22,31 +23,31 @@ export function JoinRoscaButton({
   group,
   onSuccess,
 }: JoinRoscaButtonProps) {
+  const isWagmiReady = useWagmiReady();
   const { address } = useAccount();
   const chainId = useChainId();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { isConnected } = useWalletInfo();
   const router = useRouter();
 
-  // Check if current network is supported
-  const isNetworkSupported = chainId === 296; // Hedera Testnet
+  const isNetworkSupported = isWagmiReady && chainId === 296; // Hedera Testnet
 
   // Check if the address is already a member
   const { isMember, isCheckingMembership, rondaState } = useParticipantCheck(
     group.address,
-    '0xe3E5549daa5EA2C1D451f352c63b13cB3920366F' // The address you want to check
+    address || '' 
   );
 
   // Log membership status
   useEffect(() => {
     console.log('🔍 Membership check:', {
-      address: '0xe3E5549daa5EA2C1D451f352c63b13cB3920366F',
+      address: address,
       isMember,
       isCheckingMembership,
       rondaState,
       rondaAddress: group.address
     });
-  }, [isMember, isCheckingMembership, rondaState, group.address]);
+  }, [address, isMember, isCheckingMembership, rondaState, group.address]);
 
   const handleClick = () => {
     if (isMember) {

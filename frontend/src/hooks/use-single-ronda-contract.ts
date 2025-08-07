@@ -1,12 +1,10 @@
 'use client';
 
-import { ethers } from 'ethers';
+import { NETWORK_CONFIG, RONDA_ABI, RONDA_STATES } from '@/lib/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { NETWORK_CONFIG, RONDA_ABI, RONDA_STATES } from '@/lib/contracts';
+import { ethers } from 'ethers';
 
-
-// Cache provider instance
 let providerInstance: ethers.JsonRpcProvider | null = null;
 
 const getProvider = async () => {
@@ -22,7 +20,6 @@ const getProvider = async () => {
   return providerInstance;
 };
 
-// Define contract types
 type RondaContract = ethers.Contract & {
   currentState: () => Promise<number>;
   participantCount: () => Promise<number>;

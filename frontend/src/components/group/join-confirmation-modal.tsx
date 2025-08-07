@@ -1,5 +1,6 @@
 'use client';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertTriangle,
   Calendar,
@@ -8,26 +9,17 @@ import {
   DollarSign,
   Loader2,
   Users,
-  Wallet,
-  X,
 } from 'lucide-react';
-import { useState } from 'react';
-
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useEffect, useState } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Group } from '@/local-data';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
+import { formatCurrency } from '@/lib/utils';
+import { getNetworkConfig } from '@/constants/ccip-config';
 import { useRoscaJoin } from '@/hooks/use-rosca-join';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
-import { formatCurrency, formatDate } from '@/lib/utils';
-import { Group } from '@/local-data';
 
 interface JoinConfirmationModalProps {
   group: Group;
@@ -36,43 +28,53 @@ interface JoinConfirmationModalProps {
   onSuccess: () => void;
 }
 
-type TransactionStatus =
-  | 'idle'
-  | 'checking'
-  | 'confirming'
-  | 'processing'
-  | 'success'
-  | 'error';
-
 export function JoinConfirmationModal({
   group,
   isOpen,
   onClose,
   onSuccess,
 }: JoinConfirmationModalProps) {
-  const [status, setStatus] = useState<TransactionStatus>('idle');
   const [error, setError] = useState<string | null>(null);
-  const { chainName, chainId, address, balance } = useWalletInfo();
+  const [isStuck, setIsStuck] = useState(false);
+  const { chainName, chainId } = useWalletInfo();
+  
+  const networkConfig = getNetworkConfig(296); // Hedera Testnet
 
-  // Use the ROSCA join hook
   const {
     step: joinStep,
     error: joinError,
     isConfirming,
-    isConfirmed,
     executeJoinFlow,
   } = useRoscaJoin({
     roscaContractAddress: group.address,
     paymentToken: group.paymentToken || '',
     entryFeeFormatted: group.entryFeeFormatted,
+    userChainId: chainId || undefined,
+    targetChainId: 296, // Hedera Testnet
+    rondaSenderAddress: networkConfig?.rondaSenderAddress,
     onSuccess: () => {
-      // Close modal after a short delay to show success/error state
+      console.log('🎉 Modal onSuccess callback triggered');
       setTimeout(() => {
+        console.log('🔒 Closing modal after 2 second delay');
         onClose();
         onSuccess?.();
       }, 2000);
     },
   });
+
+  useEffect(() => {
+    if (isOpen && (joinStep === 'joining' || joinStep === 'approving')) {
+      const timeoutId = setTimeout(() => {
+        console.warn('⚠️ Modal appears to be stuck, enabling manual close');
+        setIsStuck(true);
+      }, 30000); 
+      
+      return () => clearTimeout(timeoutId);
+    } else {
+      setIsStuck(false);
+      return undefined;
+    }
+  }, [isOpen, joinStep]);
 
   if (!isOpen) {
     return null;
@@ -86,20 +88,20 @@ export function JoinConfirmationModal({
     try {
       setError(null);
       await executeJoinFlow();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Join process failed:', err);
-      setError(err.message || 'Failed to join. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to join. Please try again.';
+      setError(errorMessage);
     }
   };
 
   const resetModal = () => {
-    setStatus('idle');
     setError(null);
+    setIsStuck(false);
   };
 
   const handleClose = () => {
-    // Don't allow closing during transaction processing
-    if (joinStep === 'joining' || joinStep === 'approving' || isConfirming) {
+    if ((joinStep === 'joining' || joinStep === 'approving' || isConfirming) && joinStep !== 'error' && !isStuck) {
       return;
     }
     onClose();
@@ -348,12 +350,33 @@ export function JoinConfirmationModal({
         {joinStep === 'error' && (
           <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 space-y-2 space-y-reverse sm:space-y-0 pt-4">
             <Button variant="outline" onClick={handleClose}>
-              Cancel
+              Close
             </Button>
             <Button onClick={handleJoin} className="w-full sm:w-auto gap-2">
               <DollarSign className="h-4 w-4" />
               Try Again
             </Button>
+          </div>
+        )}
+
+        {/* Manual close button for stuck states */}
+        {(joinStep === 'joining' || joinStep === 'approving') && isStuck && (
+          <div className="flex flex-col space-y-4 pt-4">
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Transaction appears to be stuck. You can close this modal and check your wallet for transaction status.
+              </AlertDescription>
+            </Alert>
+            <div className="flex justify-center">
+              <Button 
+                variant="destructive" 
+                size="lg"
+                onClick={handleClose}
+              >
+                Close Modal
+              </Button>
+            </div>
           </div>
         )}
       </DialogContent>

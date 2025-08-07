@@ -1,5 +1,6 @@
-import { RONDA_ABI } from '@/constants/abis/ronda-abi';
 import { useReadContract } from 'wagmi';
+
+import { RONDA_ABI } from '@/constants/abis/ronda-abi';
 
 export function useParticipantCheck(
   roscaContractAddress: string,

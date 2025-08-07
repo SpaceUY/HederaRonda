@@ -1,6 +1,5 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { erc20Abi, formatEther, parseEther } from 'viem';
 import {
   useAccount,
@@ -10,8 +9,10 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi';
+import { useCallback, useEffect, useState } from 'react';
 
 import { RONDA_ABI } from '@/lib/contracts';
+import { useWagmiReady } from './use-wagmi-ready';
 
 export type DepositStep =
   | 'idle'
@@ -69,6 +70,7 @@ interface UseRondaDepositParams {
 export function useRondaDeposit({
   roscaContractAddress,
 }: UseRondaDepositParams): UseRondaDepositReturn {
+  const isWagmiReady = useWagmiReady();
   const { address } = useAccount();
   const publicClient = usePublicClient();
   const [step, setStep] = useState<DepositStep>('idle');
@@ -146,7 +148,7 @@ export function useRondaDeposit({
   // Check balance (ETH or ERC20)
   const { data: ethBalanceData } = useBalance({
     address: address,
-    query: { enabled: !!address && isETH },
+    query: { enabled: isWagmiReady && !!address && isETH },
   });
 
   const { data: tokenBalanceData } = useReadContract({

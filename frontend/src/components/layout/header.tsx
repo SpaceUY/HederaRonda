@@ -1,15 +1,8 @@
 'use client';
 
-import { Menu, X, Eye, User, ChevronDown, LogOut, Wallet, Network, Coins, Copy, CheckCircle } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { useDisconnect } from 'wagmi';
-
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
+import { CheckCircle, ChevronDown, Coins, Copy, Eye, LogOut, Menu, Network, User, Wallet, X } from 'lucide-react';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -17,18 +10,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useVerification } from '@/hooks/use-verification';
-import { useWalletInfo } from '@/hooks/use-wallet-info';
-import { cn } from '@/lib/utils';
+import { useEffect, useState } from 'react';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { useDisconnect } from 'wagmi';
+import { usePathname } from 'next/navigation';
+import { useVerification } from '@/hooks/use-verification';
+import { useWagmiReady } from '@/hooks/use-wagmi-ready';
+import { useWalletInfo } from '@/hooks/use-wallet-info';
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const pathname = usePathname();
+  const isWagmiReady = useWagmiReady();
   const { verificationState } = useVerification();
   const { address, chainId, chainName, isConnected, balance, connector } = useWalletInfo();
+  
   const { disconnect } = useDisconnect();
 
   useEffect(() => {

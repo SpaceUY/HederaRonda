@@ -1,8 +1,10 @@
 'use client';
 
+import React, { useCallback, useEffect, useState } from 'react';
+
 import { ISuccessResult } from '@worldcoin/idkit';
-import React, { useState, useCallback, useEffect } from 'react';
 import { useAccount } from 'wagmi';
+import { useWagmiReady } from './use-wagmi-ready';
 
 interface VerificationState {
   worldIdProof: ISuccessResult | null;
@@ -18,7 +20,11 @@ interface VerificationState {
 }
 
 export function useVerification() {
+  const isWagmiReady = useWagmiReady();
   const { address, isConnected } = useAccount();
+  
+  const effectiveAddress = isWagmiReady ? address : undefined;
+  const effectiveIsConnected = isWagmiReady ? isConnected : false;
   
   // Initialize with consistent server/client state
   const [verificationState, setVerificationState] = useState<VerificationState>({
@@ -132,19 +138,19 @@ export function useVerification() {
     }));
   }, []);
 
-  // Update wallet state when wagmi state changes (only on client)
   React.useEffect(() => {
-    if (isConnected && address) {
-      handleWalletConnect(address);
-    } else if (!isConnected) {
+    if (!isWagmiReady) {return;}
+    
+    if (effectiveIsConnected && effectiveAddress) {
+      handleWalletConnect(effectiveAddress);
+    } else if (!effectiveIsConnected) {
       handleWalletDisconnect();
     }
-  }, [isConnected, address, handleWalletConnect, handleWalletDisconnect]);
+  }, [effectiveIsConnected, effectiveAddress, handleWalletConnect, handleWalletDisconnect, isWagmiReady]);
 
   const resetVerification = useCallback(() => {
     console.log('🔄 Resetting verification state');
     
-    // Clear localStorage
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('ronda-worldid-session');

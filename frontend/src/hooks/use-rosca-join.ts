@@ -1,39 +1,48 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { erc20Abi, formatEther, parseEther } from 'viem';
 import {
   useAccount,
   useBalance,
-  useChainId,
   usePublicClient,
   useReadContract,
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { RONDA_ABI } from '@/constants/abis/ronda-abi';
+import { RONDA_SENDER_ABI } from '@/constants/abis/ronda-sender-abi';
 import { usePenaltyCheck } from '@/hooks/use-penalty-check';
-import { NETWORK_CONFIG } from '@/lib/contracts';
-import { getContractJoinConfig } from '@/utils/contract-utils';
-
+import { useQueryClient } from '@tanstack/react-query';
+import { useWagmiReady } from '@/hooks/use-wagmi-ready';
 
 type JoinStep = 'idle' | 'checking' | 'estimating' | 'approving' | 'joining' | 'success' | 'error';
+
+// Helper function to determine if cross-chain communication is needed
+function needsCrossChainCommunication(userChainId: number, targetChainId: number): boolean {
+  return userChainId !== targetChainId;
+}
 
 export function useRoscaJoin({
   roscaContractAddress,
   paymentToken,
   entryFeeFormatted,
   onSuccess,
+  userChainId,
+  targetChainId,
+  rondaSenderAddress,
 }: {
   roscaContractAddress: string;
   paymentToken: string;
   entryFeeFormatted: number;
   onSuccess?: () => void;
+  userChainId?: number | undefined;
+  targetChainId?: number | undefined;
+  rondaSenderAddress?: string | undefined;
 }) {
+  const isWagmiReady = useWagmiReady();
   const { address } = useAccount();
-  const chainId = useChainId();
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
 
@@ -42,10 +51,60 @@ export function useRoscaJoin({
   const [estimatedGas, setEstimatedGas] = useState<bigint | null>(null);
   const [estimatedGasCost, setEstimatedGasCost] = useState<bigint | null>(null);
 
+  // Determine if this is a cross-chain operation
+  const isCrossChain = useMemo(() => {
+    if (!userChainId || !targetChainId) {
+      return false;
+    }
+    const result = needsCrossChainCommunication(userChainId, targetChainId);
+    console.log('🔗 Cross-chain check:', {
+      userChainId,
+      targetChainId,
+      isCrossChain: result,
+      rondaSenderAddress
+    });
+    return result;
+  }, [userChainId, targetChainId, rondaSenderAddress]);
+
+  // Use the appropriate contract address and ABI
+  const contractAddress = useMemo(() => {
+    if (isCrossChain && rondaSenderAddress) {
+      console.log('🔗 Using RondaSender contract for cross-chain join:', rondaSenderAddress);
+      return rondaSenderAddress;
+    }
+    console.log('🔗 Using direct RONDA contract for same-chain join:', roscaContractAddress);
+    return roscaContractAddress;
+  }, [isCrossChain, rondaSenderAddress, roscaContractAddress]);
+
+  const contractAbi = useMemo(() => {
+    if (isCrossChain) {
+      return RONDA_SENDER_ABI;
+    }
+    return RONDA_ABI;
+  }, [isCrossChain]);
+
+  const functionName = useMemo(() => {
+    return 'joinRonda' as const;
+  }, []);
+
+  const functionArgs = useMemo(() => {
+    if (isCrossChain) {
+      // For cross-chain: joinRonda(address rondaContract, address token, uint256 amount)
+      return [
+        roscaContractAddress as `0x${string}`,
+        paymentToken as `0x${string}`,
+        parseEther(entryFeeFormatted.toString()) 
+      ] as const;
+    } else {
+      // For same-chain: joinRonda()
+      return [] as const;
+    }
+  }, [isCrossChain, roscaContractAddress, paymentToken, entryFeeFormatted]);
+
   // Penalty check
   const { hasPenalties, penaltyCount } = usePenaltyCheck();
 
-  // Check if user is already a member
+  // Check if user is already a member (only for same-chain)
   const { data: isAlreadyMember } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
@@ -97,8 +156,8 @@ export function useRoscaJoin({
     if (!allowance) {
       return true;
     }
-    // USDC uses 6 decimals
-    const requiredAmount = BigInt(entryFeeFormatted * 1_000_000);
+
+    const requiredAmount = parseEther(entryFeeFormatted.toString());
     return allowance < requiredAmount;
   }, [allowance, entryFeeFormatted]);
 
@@ -108,11 +167,14 @@ export function useRoscaJoin({
   // Join RONDA
   const { writeContract: writeJoin } = useWriteContract();
 
-  // Estimate gas
+  // Estimate gas with debouncing
   const estimateGas = useCallback(async () => {
-    if (!publicClient || !address || !roscaContractAddress) {
+    if (!publicClient || !address || !contractAddress) {
       return;
     }
+
+    // Add a small delay to prevent rate limiting
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
       console.log('⛽ Estimating gas for joinRonda...');
@@ -123,10 +185,10 @@ export function useRoscaJoin({
 
       try {
         const gas = await publicClient.estimateContractGas({
-          address: roscaContractAddress as `0x${string}`,
-          abi: RONDA_ABI,
-          functionName: 'joinRonda',
-          args: [],
+          address: contractAddress as `0x${string}`,
+          abi: contractAbi,
+          functionName: functionName,
+          args: functionArgs,
           account: address,
         });
 
@@ -169,17 +231,17 @@ export function useRoscaJoin({
       setEstimatedGas(fallbackGas);
       setEstimatedGasCost(gasCost);
     }
-  }, [publicClient, address, roscaContractAddress]);
+  }, [publicClient, address, contractAddress, contractAbi, functionName, functionArgs]);
 
   // Decode contract errors
-  const decodeContractError = useCallback((err: any): string => {
+  const decodeContractError = useCallback((err: unknown): string => {
     console.log('🔍 Decoding contract error:', err);
 
     try {
-      const cause = err.cause || err;
-      const errorName = cause.name || '';
-      const errorMessage = cause.message || cause.shortMessage || '';
-      const errorData = cause.data?.message || '';
+      const cause = (err as { cause?: unknown }).cause || err;
+      const errorName = (cause as { name?: string }).name || '';
+      const errorMessage = (cause as { message?: string; shortMessage?: string }).message || (cause as { shortMessage?: string }).shortMessage || '';
+      const errorData = (cause as { data?: { message?: string } }).data?.message || '';
 
       console.log('📋 Error details:', {
         name: errorName,
@@ -307,7 +369,7 @@ export function useRoscaJoin({
     }
 
     // Fallback to analyzing the raw error message
-    const errorMessage = err.message || err.toString();
+    const errorMessage = err instanceof Error ? err.message : String(err);
 
     if (errorMessage.includes('insufficient funds')) {
       return 'Insufficient HBAR for gas fees';
@@ -331,21 +393,29 @@ export function useRoscaJoin({
   }, []);
 
   const executeJoinFlow = useCallback(async () => {
+    if (!isWagmiReady) {
+      setError('Wagmi provider not ready');
+      setStep('error');
+      onSuccess?.();
+      return;
+    }
+    
     if (!address) {
       setError('Wallet not connected');
       setStep('error');
-      onSuccess?.(); // Close modal on error
+      onSuccess?.();
       return;
     }
 
-    if (!roscaContractAddress) {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    if (!contractAddress) {
       setError('Missing RONDA contract address');
       setStep('error');
-      onSuccess?.(); // Close modal on error
+      onSuccess?.();
       return;
     }
 
-    // Check for penalty tokens first
     if (hasPenalties) {
       setError(
         `You cannot participate in rounds due to contract violations. You have ${penaltyCount} penalty token${
@@ -353,37 +423,52 @@ export function useRoscaJoin({
         }. Please resolve your penalties before joining.`
       );
       setStep('error');
-      onSuccess?.(); // Close modal on error
+      onSuccess?.();
       return;
     }
 
-    // Check if user is already a member
-    if (isAlreadyMember) {
-      setError('You have already joined this RONDA');
-      setStep('error');
-      onSuccess?.(); // Close modal on error
-      return;
-    }
-
-    if (!hasEnoughBalance) {
-      if (!hasEnoughTokenBalance) {
-        setError(`Insufficient token balance. Need ${entryFeeFormatted} tokens for entry fee.`);
-      } else {
-        setError(`Insufficient HBAR balance. Need ${formatEther(estimatedGasCost || parseEther('0.01'))} HBAR for gas.`);
+    if (isCrossChain) {
+      if (!rondaSenderAddress) {
+        setError('Missing RONDA Sender contract address');
+        setStep('error');
+        onSuccess?.();
+        return;
       }
-      setStep('error');
-      onSuccess?.(); // Close modal on error
-      return;
+      if (!hasEnoughBalance) {
+        if (!hasEnoughTokenBalance) {
+          setError(`Insufficient token balance. Need ${entryFeeFormatted} tokens for entry fee.`);
+        } else {
+          setError(`Insufficient HBAR balance. Need ${formatEther(estimatedGasCost || parseEther('0.01'))} HBAR for gas.`);
+        }
+        setStep('error');
+        onSuccess?.();
+        return;
+      }
+    } else {
+      if (isAlreadyMember) {
+        setError('You have already joined this RONDA');
+        setStep('error');
+        onSuccess?.();
+        return;
+      }
+      if (!hasEnoughBalance) {
+        if (!hasEnoughTokenBalance) {
+          setError(`Insufficient token balance. Need ${entryFeeFormatted} tokens for entry fee.`);
+        } else {
+          setError(`Insufficient HBAR balance. Need ${formatEther(estimatedGasCost || parseEther('0.01'))} HBAR for gas.`);
+        }
+        setStep('error');
+        onSuccess?.();
+        return;
+      }
     }
 
     try {
       setError(null);
 
-      // Step 0: Final membership and penalty check
       setStep('checking');
       console.log('🔍 Performing final membership and penalty verification...');
 
-      // Small delay to show checking state
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       if (hasPenalties) {
@@ -393,29 +478,31 @@ export function useRoscaJoin({
           } in your wallet`
         );
         setStep('error');
-        onSuccess?.(); // Close modal on error
+        onSuccess?.();
         return;
       }
 
-      if (isAlreadyMember) {
-        setError('You have already joined this RONDA');
-        setStep('error');
-        onSuccess?.(); // Close modal on error
-        return;
+      if (isCrossChain) {
+        // For cross-chain, we don't check if already a member on the source chain
+        console.log('🔗 Cross-chain join detected, skipping membership check');
+      } else {
+        if (isAlreadyMember) {
+          setError('You have already joined this RONDA');
+          setStep('error');
+          onSuccess?.(); // Close modal on error
+          return;
+        }
       }
 
-      // Re-estimate gas before transaction if needed
       if (!estimatedGas) {
         setStep('estimating');
         await estimateGas();
       }
 
-      // Step 1: Approve tokens if needed (ERC20 only)
       if (needsApproval) {
         setStep('approving');
 
-        // USDC uses 6 decimals
-        const approvalAmount = BigInt(entryFeeFormatted * 1_000_000); // Convert to 6 decimals
+        const approvalAmount = parseEther(entryFeeFormatted.toString());
 
         console.log('🔐 Approving ERC20 tokens:', {
           tokenContract: paymentToken,
@@ -425,26 +512,33 @@ export function useRoscaJoin({
           amountFormatted: entryFeeFormatted,
         });
 
-        // Approve RONDA contract to spend tokens
+        console.log('📝 Calling writeApproval...');
+        console.log('🔐 Calling writeApproval with:', {
+          address: paymentToken,
+          spender: roscaContractAddress,
+          amount: approvalAmount.toString(),
+          gas: 100000n
+        });
+        
         writeApproval({
           address: paymentToken as `0x${string}`,
           abi: erc20Abi,
           functionName: 'approve',
           args: [
-            roscaContractAddress as `0x${string}`, // Spender (RONDA contract)
-            approvalAmount // Amount to approve in proper decimals
+            roscaContractAddress as `0x${string}`,
+            approvalAmount
           ],
           gas: 100000n,
         });
+        console.log('📝 writeApproval called');
 
         return; 
       }
 
-      // Step 2: Join RONDA
       setStep('joining');
 
       console.log('🚀 Executing joinRonda transaction:', {
-        roscaContract: roscaContractAddress,
+        roscaContract: contractAddress,
         userAddress: address,
         paymentToken,
         entryFee: entryFeeFormatted,
@@ -453,26 +547,37 @@ export function useRoscaJoin({
 
       const gasConfig = estimatedGas ? { gas: estimatedGas } : { gas: 300000n };
 
+      console.log('🚀 Calling writeJoin with:', {
+        address: contractAddress,
+        abi: contractAbi,
+        functionName,
+        args: functionArgs,
+        gasConfig
+      });
+      
       writeJoin({
-        address: roscaContractAddress as `0x${string}`,
-        abi: RONDA_ABI,
-        functionName: 'joinRonda',
-        args: [] as const,
+        address: contractAddress as `0x${string}`,
+        abi: contractAbi,
+        functionName: functionName,
+        args: functionArgs,
         ...gasConfig
       });
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('❌ Error in join flow:', err);
       const decodedError = decodeContractError(err);
       setError(decodedError);
       setStep('error');
-      onSuccess?.(); // Close modal on error
+      onSuccess?.();
     }
   }, [
     address,
+    contractAddress,
     roscaContractAddress,
     hasPenalties,
     penaltyCount,
+    isCrossChain,
+    rondaSenderAddress,
     isAlreadyMember,
     hasEnoughBalance,
     hasEnoughTokenBalance,
@@ -486,32 +591,34 @@ export function useRoscaJoin({
     writeJoin,
     decodeContractError,
     onSuccess,
+    functionName,
+    functionArgs,
+    contractAbi,
+    isWagmiReady,
   ]);
 
-  // Watch for transaction success
   const { data: hash, error: writeError, isPending } = useWriteContract();
 
-  // Log transaction hash when it changes
   useEffect(() => {
+    console.log('🔍 Hash effect triggered:', { hash, step, isPending });
     if (hash) {
       console.log('📝 Transaction submitted:', {
         hash,
         step,
         type: step === 'approving' ? 'Token Approval' : 'Join RONDA'
       });
-      // Update step to show confirming state
       setStep(step === 'approving' ? 'approving' : 'joining');
     }
-  }, [hash, step]);
+  }, [hash, step, isPending]);
 
   const { isLoading: isConfirming, isSuccess: isConfirmed, error: waitError } = useWaitForTransactionReceipt({
     hash,
     onReplaced: (response) => {
       console.log('🔄 Transaction replaced:', response);
     },
+    confirmations: 1,
   });
 
-  // Log confirmation status changes
   useEffect(() => {
     console.log('🔄 Transaction status:', {
       isPending,
@@ -523,8 +630,30 @@ export function useRoscaJoin({
     });
   }, [isPending, isConfirming, isConfirmed, step, hash, writeError, waitError]);
 
-  // Watch for approval success
   useEffect(() => {
+    if (step === 'success') {
+      console.log('🎉 Success step reached, calling onSuccess callback');
+      
+      // Fallback: if onSuccess doesn't close the modal within 5 seconds, force close
+      const fallbackTimeout = setTimeout(() => {
+        console.log('⚠️ Fallback: forcing modal close after 5 seconds');
+        onSuccess?.();
+      }, 5000);
+      
+      return () => clearTimeout(fallbackTimeout);
+    }
+    return undefined;
+  }, [step, onSuccess]);
+
+  useEffect(() => {
+    console.log('🔍 Transaction confirmation check:', {
+      isConfirmed,
+      step,
+      hash,
+      isPending,
+      isConfirming
+    });
+    
     if (isConfirmed && (step === 'joining' || step === 'approving')) {
       console.log('🎉 Transaction confirmed:', {
         step,
@@ -533,38 +662,111 @@ export function useRoscaJoin({
       });
       
       if (step === 'joining') {
-        // Invalidate only the relevant queries
+        console.log('✅ Join transaction confirmed, setting success state');
         queryClient.invalidateQueries({
           queryKey: ['ronda', roscaContractAddress],
         });
         
         setStep('success');
+        console.log('📞 Calling onSuccess callback');
         onSuccess?.();
       } else if (step === 'approving') {
-        // Proceed with join after approval
-        setTimeout(() => {
-          executeJoinFlow();
+        console.log('✅ Approval confirmed, proceeding with join...');
+        setStep('joining');
+        
+        const timeoutId = setTimeout(() => {
+          console.log('🚀 Executing join after approval...');
+          writeJoin({
+            address: contractAddress as `0x${string}`,
+            abi: contractAbi,
+            functionName: functionName,
+            args: functionArgs,
+            gas: estimatedGas || 300000n
+          });
         }, 1000);
+        
+        return () => clearTimeout(timeoutId);
       }
     }
-  }, [isConfirmed, step, onSuccess, queryClient, roscaContractAddress, executeJoinFlow, hash]);
+    return undefined;
+  }, [isConfirmed, step, onSuccess, queryClient, roscaContractAddress, writeJoin, estimatedGas, hash, contractAddress, contractAbi, functionName, functionArgs, isPending, isConfirming]);
 
-  // Watch for errors with enhanced logging
   useEffect(() => {
     const error = writeError || waitError;
     if (error) {
       console.error('❌ Transaction error:', {
         error,
         step,
-        hash
+        hash,
+        writeError,
+        waitError
       });
       const decodedError = decodeContractError(error);
       console.log('🔍 Decoded error:', decodedError);
       setError(decodedError);
       setStep('error');
-      onSuccess?.();
     }
-  }, [writeError, waitError, decodeContractError, onSuccess, step, hash]);
+  }, [writeError, waitError, decodeContractError, step, hash]);
+
+  useEffect(() => {
+    if ((step === 'joining' || step === 'approving') && hash) {
+      const timeoutId = setTimeout(() => {
+        console.warn('⚠️ Transaction timeout detected, allowing modal to close');
+        setStep('error');
+        setError('Transaction timeout. Please check your wallet and try again.');
+      }, 300000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+    
+    // Fallback: if we're in approving/joining step but no hash after 10 seconds, 
+    // assume transaction was sent through Metamask and proceed
+    if ((step === 'joining' || step === 'approving') && !hash) {
+      const fallbackTimeout = setTimeout(() => {
+        console.log('🔄 Fallback: No hash detected but step is active, assuming transaction was sent');
+        if (step === 'approving') {
+          console.log('✅ Assuming approval was successful, proceeding to join');
+          setStep('joining');
+          // Try to execute the join transaction
+          setTimeout(() => {
+            writeJoin({
+              address: contractAddress as `0x${string}`,
+              abi: contractAbi,
+              functionName: functionName,
+              args: functionArgs,
+              gas: estimatedGas || 300000n
+            });
+          }, 1000);
+        } else if (step === 'joining') {
+          console.log('✅ Assuming join was successful');
+          setStep('success');
+          onSuccess?.();
+        }
+      }, 10000);
+      
+      return () => clearTimeout(fallbackTimeout);
+    }
+    
+    return undefined;
+  }, [step, hash, writeJoin, contractAddress, contractAbi, functionName, functionArgs, estimatedGas, onSuccess]);
+
+  useEffect(() => {
+    return () => {
+      setStep('idle');
+      setError(null);
+    };
+  }, []);
+
+  // Don't return hooks data until Wagmi is ready
+  if (!isWagmiReady) {
+    return {
+      step: 'idle' as const,
+      error: null,
+      isConfirming: false,
+      isConfirmed: false,
+      executeJoinFlow,
+    };
+  }
 
   return {
     step,

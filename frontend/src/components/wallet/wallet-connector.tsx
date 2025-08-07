@@ -1,13 +1,14 @@
 'use client';
 
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Wallet, LogOut, RefreshCw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { LogOut, RefreshCw, Wallet } from 'lucide-react';
 import { useAccount, useDisconnect } from 'wagmi';
+import { useEffect, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useWagmiReady } from '@/hooks/use-wagmi-ready';
 
 interface WalletConnectorProps {
   onWalletConnect?: (address: string) => void;
@@ -15,8 +16,14 @@ interface WalletConnectorProps {
 }
 
 export function WalletConnector({ onWalletConnect, onWalletDisconnect }: WalletConnectorProps) {
+  const isWagmiReady = useWagmiReady();
+  
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
+  
+  const effectiveAddress = isWagmiReady ? address : undefined;
+  const effectiveIsConnected = isWagmiReady ? isConnected : false;
+  
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -24,12 +31,12 @@ export function WalletConnector({ onWalletConnect, onWalletDisconnect }: WalletC
   }, []);
 
   useEffect(() => {
-    if (mounted && isConnected && address) {
-      onWalletConnect?.(address);
-    } else if (mounted && !isConnected) {
+    if (mounted && effectiveIsConnected && effectiveAddress) {
+      onWalletConnect?.(effectiveAddress);
+    } else if (mounted && !effectiveIsConnected) {
       onWalletDisconnect?.();
     }
-  }, [mounted, isConnected, address, onWalletConnect, onWalletDisconnect]);
+  }, [mounted, effectiveIsConnected, effectiveAddress, onWalletConnect, onWalletDisconnect]);
 
   // Prevent hydration mismatch
   if (!mounted) {
@@ -49,7 +56,7 @@ export function WalletConnector({ onWalletConnect, onWalletDisconnect }: WalletC
     );
   }
 
-  if (isConnected && address) {
+  if (effectiveIsConnected && effectiveAddress) {
     return (
       <Card>
         <CardHeader>
@@ -64,7 +71,7 @@ export function WalletConnector({ onWalletConnect, onWalletDisconnect }: WalletC
             <div>
               <div className="font-medium text-success">Connected</div>
               <div className="text-sm text-muted-foreground font-mono">
-                {address.slice(0, 6)}...{address.slice(-4)}
+                {effectiveAddress?.slice(0, 6)}...{effectiveAddress?.slice(-4)}
               </div>
             </div>
             <Badge variant="outline" className="bg-success/10 text-success border-success/20">

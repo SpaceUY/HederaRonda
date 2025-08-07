@@ -2,11 +2,12 @@
 
 import '@rainbow-me/rainbowkit/styles.css';
 
-import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState, useRef, useEffect } from 'react';
-import { WagmiProvider } from 'wagmi';
+import { useEffect, useRef, useState } from 'react';
 
+import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { WagmiContextProvider } from './wagmi-context';
+import { WagmiProvider } from 'wagmi';
 import { config } from '@/lib/wagmi';
 
 interface Web3ProviderProps {
@@ -38,14 +39,20 @@ export function Web3Provider({ children }: Web3ProviderProps) {
 
   // Only render wallet providers on the client side
   if (!mounted) {
-    return <>{children}</>;
+    return (
+      <div style={{ visibility: 'hidden', height: '100vh', pointerEvents: 'none' }}>
+        {children}
+      </div>
+    );
   }
 
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClientRef.current}>
         <RainbowKitProvider>
-          {children}
+          <WagmiContextProvider>
+            {children}
+          </WagmiContextProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

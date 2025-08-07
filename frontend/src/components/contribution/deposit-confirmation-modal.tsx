@@ -1,5 +1,6 @@
 'use client';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertTriangle,
   Calendar,
@@ -9,26 +10,15 @@ import {
   Loader2,
   Users,
   Wallet,
-  X,
 } from 'lucide-react';
-import { useState } from 'react';
-
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
-import { useWalletInfo } from '@/hooks/use-wallet-info';
-import { formatCurrency } from '@/lib/utils';
+
+import { Button } from '@/components/ui/button';
 import { Group } from '@/local-data';
-
-
+import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
+import { formatCurrency } from '@/lib/utils';
+import { useState } from 'react';
+import { useWalletInfo } from '@/hooks/use-wallet-info';
 
 interface DepositConfirmationModalProps {
   group: Group;

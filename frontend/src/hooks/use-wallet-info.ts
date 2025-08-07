@@ -1,8 +1,10 @@
 'use client';
 
+import { useAccount, useBalance, useChainId } from 'wagmi';
 import { useEffect, useState } from 'react';
+
 import { formatEther } from 'viem';
-import { useAccount, useChainId, useBalance } from 'wagmi';
+import { useWagmiReady } from './use-wagmi-ready';
 
 interface WalletInfo {
   address: string | undefined;
@@ -33,12 +35,16 @@ const CHAIN_NAMES: Record<number, string> = {
 };
 
 export function useWalletInfo(): WalletInfo {
+  const isWagmiReady = useWagmiReady();
+  
   const { address, isConnected, connector } = useAccount();
   const chainId = useChainId();
+  
   const [isLoading, setIsLoading] = useState(true);
   
   const { data: balanceData, isLoading: balanceLoading } = useBalance({
     address: address,
+    query: { enabled: isWagmiReady && !!address },
   });
 
   const chainName = CHAIN_NAMES[chainId] || `Chain ${chainId}`;
@@ -52,12 +58,12 @@ export function useWalletInfo(): WalletInfo {
   }, [balanceLoading]);
 
   return {
-    address,
-    chainId,
-    chainName,
-    isConnected,
-    balance,
-    isLoading,
-    connector: connector?.name,
+    address: isWagmiReady ? address : undefined,
+    chainId: isWagmiReady ? chainId : undefined,
+    chainName: isWagmiReady ? CHAIN_NAMES[chainId] || `Chain ${chainId}` : 'Unknown',
+    isConnected: isWagmiReady ? isConnected : false,
+    balance: isWagmiReady ? balance : null,
+    isLoading: isWagmiReady ? isLoading : false,
+    connector: isWagmiReady ? connector?.name : undefined,
   };
 }

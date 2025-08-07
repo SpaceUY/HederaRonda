@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { useAccount } from 'wagmi';
+import { PenaltyCheckResult, checkPenaltyTokens } from '@/lib/penalty-contract';
+import { useCallback, useEffect, useState } from 'react';
 
-import { checkPenaltyTokens, PenaltyCheckResult } from '@/lib/penalty-contract';
+import { useAccount } from 'wagmi';
+import { useWagmiReady } from './use-wagmi-ready';
 
 interface UsePenaltyCheckReturn extends PenaltyCheckResult {
   checkPenalties: (address?: string) => Promise<void>;
@@ -11,7 +12,9 @@ interface UsePenaltyCheckReturn extends PenaltyCheckResult {
 }
 
 export function usePenaltyCheck(): UsePenaltyCheckReturn {
+  const isWagmiReady = useWagmiReady();
   const { address } = useAccount();
+  
   const [penaltyResult, setPenaltyResult] = useState<PenaltyCheckResult>({
     hasPenalties: false,
     penaltyCount: 0,
@@ -61,12 +64,11 @@ export function usePenaltyCheck(): UsePenaltyCheckReturn {
     });
   }, []);
 
-  // Auto-check when wallet connects
   useEffect(() => {
-    if (address) {
+    if (isWagmiReady && address) {
       checkPenalties(address);
     }
-  }, [address, checkPenalties]);
+  }, [isWagmiReady, address, checkPenalties]);
 
   return {
     ...penaltyResult,

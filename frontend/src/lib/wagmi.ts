@@ -3,7 +3,6 @@ import { avalancheFuji, sepolia } from 'wagmi/chains';
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { http } from 'wagmi';
 
-// Define Hedera testnet chain
 const hederaTestnet = {
   id: 296,
   name: 'Hedera Testnet',
@@ -14,8 +13,18 @@ const hederaTestnet = {
     symbol: 'HBAR',
   },
   rpcUrls: {
-    default: { http: ['https://testnet.hashio.io/api'] },
-    public: { http: ['https://testnet.hashio.io/api'] },
+    default: { 
+      http: [
+        'https://testnet.hashio.io/api',
+        'https://testnet.hedera.com' // Fallback
+      ] 
+    },
+    public: { 
+      http: [
+        'https://testnet.hashio.io/api',
+        'https://testnet.hedera.com' // Fallback
+      ] 
+    },
   },
   blockExplorers: {
     default: { name: 'HashScan', url: 'https://hashscan.io/testnet' },
@@ -27,9 +36,12 @@ const hederaTestnet = {
 const config = getDefaultConfig({
   appName: 'RONDA Web3',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo-project-id',
-  chains: [hederaTestnet, avalancheFuji, sepolia], // Hedera is first/default
+  chains: [hederaTestnet, avalancheFuji, sepolia], 
   transports: {
-    [hederaTestnet.id]: http('https://testnet.hashio.io/api'), // Hedera RPC
+    [hederaTestnet.id]: http('https://testnet.hashio.io/api', {
+      retryCount: 3,
+      retryDelay: 1000,
+    }), 
     [avalancheFuji.id]: http(
       process.env.NEXT_PUBLIC_AVALANCHE_FUJI_RPC_URL || 
       'https://avalanche-fuji-c-chain-rpc.publicnode.com'
@@ -39,7 +51,7 @@ const config = getDefaultConfig({
       'https://ethereum-sepolia-rpc.publicnode.com'
     ),
   },
-  ssr: true, // Disable server-side rendering to match Web3Provider dynamic import
+  ssr: false, 
 });
 
 export { config };
