@@ -104,15 +104,22 @@ export function WorldIdVerifier({
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <AlertTriangle className="h-5 w-5 text-warning" />
-            <span>World ID Configuration Missing</span>
+            <span>
+              {process.env.NODE_ENV === 'development' 
+                ? 'World ID Configuration Missing'
+                : 'Demo Mode - World ID Verification'
+              }
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              World ID App ID is not configured. Please set
-              NEXT_PUBLIC_WORLDCOIN_APP_ID in your environment variables.
+              {process.env.NODE_ENV === 'development' 
+                ? 'World ID App ID is not configured. Please set NEXT_PUBLIC_WORLDCOIN_APP_ID in your environment variables.'
+                : 'World ID integration is currently in demo mode for this hackathon submission. Click below to continue with demo verification.'
+              }
             </AlertDescription>
           </Alert>
 
@@ -130,24 +137,25 @@ export function WorldIdVerifier({
             </p>
           </div>
 
-          {process.env.NODE_ENV === 'development' && (
-            <Button
-              onClick={() => {
-                const mockProof: ISuccessResult = {
-                  merkle_root: 'demo_merkle_root_' + Date.now(),
-                  nullifier_hash: 'demo_nullifier_hash_' + Date.now(),
-                  proof: 'demo_proof_' + Date.now(),
-                  verification_level: VerificationLevel.Device,
-                };
-                handleProof(mockProof);
-              }}
-              className="w-full mt-4"
-              variant="outline"
-            >
-              <Shield className="h-4 w-4 mr-2" />
-              Use Demo Verification (Development Only)
-            </Button>
-          )}
+          <Button
+            onClick={() => {
+              const mockProof: ISuccessResult = {
+                merkle_root: 'demo_merkle_root_' + Date.now(),
+                nullifier_hash: 'demo_nullifier_hash_' + Date.now(),
+                proof: 'demo_proof_' + Date.now(),
+                verification_level: VerificationLevel.Device,
+              };
+              handleProof(mockProof);
+            }}
+            className="w-full mt-4"
+            variant="outline"
+          >
+            <Shield className="h-4 w-4 mr-2" />
+            {process.env.NODE_ENV === 'development' 
+              ? 'Use Demo Verification (Development Only)'
+              : 'Continue with Demo Verification (Hackathon Demo)'
+            }
+          </Button>
         </CardContent>
       </Card>
     );
