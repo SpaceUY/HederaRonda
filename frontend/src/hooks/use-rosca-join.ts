@@ -237,6 +237,12 @@ export function useRoscaJoin({
   const decodeContractError = useCallback((err: unknown): string => {
     console.log('🔍 Decoding contract error:', err);
 
+    // Check for rate limiting errors
+    const errorString = err instanceof Error ? err.message : String(err);
+    if (errorString.includes('429') || errorString.includes('Too Many Requests')) {
+      return 'Rate limit exceeded. Please wait a moment and try again.';
+    }
+
     try {
       const cause = (err as { cause?: unknown }).cause || err;
       const errorName = (cause as { name?: string }).name || '';
@@ -663,13 +669,27 @@ export function useRoscaJoin({
       
       if (step === 'joining') {
         console.log('✅ Join transaction confirmed, setting success state');
+        queryClient.invalidateQueries();
+        
         queryClient.invalidateQueries({
-          queryKey: ['ronda', roscaContractAddress],
+          predicate: (query) => {
+            const queryKey = query.queryKey;
+            return (
+              Array.isArray(queryKey) &&
+              (queryKey.includes('readContract') || 
+               queryKey.includes('hasParticipantJoined') ||
+               queryKey.includes('participantCount') ||
+               queryKey.includes('currentState'))
+            );
+          },
         });
         
         setStep('success');
         console.log('📞 Calling onSuccess callback');
-        onSuccess?.();
+        
+        setTimeout(() => {
+          onSuccess?.();
+        }, 500);
       } else if (step === 'approving') {
         console.log('✅ Approval confirmed, proceeding with join...');
         setStep('joining');

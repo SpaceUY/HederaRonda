@@ -1,25 +1,19 @@
 'use client';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  Users,
-  Calendar,
-  DollarSign,
-  Clock,
-  Shield,
-  CheckCircle,
   AlertTriangle,
-  RefreshCw,
-  Network,
+  Calendar,
+  CheckCircle,
+  Clock,
+  DollarSign,
   ExternalLink,
+  Network,
+  RefreshCw,
+  Shield,
+  Users,
   Zap,
 } from 'lucide-react';
-import { notFound } from 'next/navigation';
-
-import { JoinButton } from '@/components/group/join-button';
-import { Header } from '@/components/layout/header';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -27,10 +21,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Header } from '@/components/layout/header';
+import { JoinButton } from '@/components/group/join-button';
+import { formatDate } from '@/lib/utils';
+import { notFound } from 'next/navigation';
+import { useAccount } from 'wagmi';
 import { useSingleRondaContract } from '@/hooks/use-single-ronda-contract';
 import { useTokenFormatter } from '@/hooks/use-token-formatter';
 import { useVerification } from '@/hooks/use-verification';
-import { formatDate } from '@/lib/utils';
 
 interface GroupDetailPageProps {
   params: {
@@ -43,6 +44,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
     params.id
   );
   const { verificationState } = useVerification();
+  const { address } = useAccount();
 
   // Use token formatter for dynamic amount formatting - pass the raw contract values
   const {
@@ -274,8 +276,15 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                       { length: ronda.maxParticipants },
                       (_, index) => {
                         const isOccupied = index < ronda.participantCount;
-                        const isYourSpot =
-                          index === ronda.participantCount &&
+                        
+                        // Check if current user is already a participant
+                        const userParticipantIndex = address ? ronda.participants.findIndex(p => p.toLowerCase() === address.toLowerCase()) : -1;
+                        const isUserParticipant = userParticipantIndex !== -1;
+                        const isUserInThisSpot = isUserParticipant && userParticipantIndex === index;
+                        
+                        // Show "YOU" only if user is not already a participant and this is the next available spot
+                        const isYourSpot = !isUserParticipant && 
+                          index === ronda.participantCount && 
                           ronda.state === 'Open';
 
                         return (
@@ -285,21 +294,25 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                           >
                             <div
                               className={`flex h-12 w-12 items-center justify-center rounded-full border-2 text-xs font-medium ${
-                                isYourSpot
-                                  ? 'animate-pulse border-warning bg-warning/10 text-warning'
-                                  : isOccupied
-                                    ? 'border-success bg-success/10 text-success'
-                                    : 'border-muted bg-muted text-muted-foreground'
+                                isUserInThisSpot
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : isYourSpot
+                                    ? 'animate-pulse border-warning bg-warning/10 text-warning'
+                                    : isOccupied
+                                      ? 'border-success bg-success/10 text-success'
+                                      : 'border-muted bg-muted text-muted-foreground'
                               }`}
                             >
-                              {isYourSpot ? 'YOU' : index + 1}
+                              {isUserInThisSpot ? 'YOU' : isYourSpot ? 'YOU' : index + 1}
                             </div>
                             <span className="text-xs text-muted-foreground">
-                              {isYourSpot
-                                ? 'Your spot'
-                                : isOccupied
-                                  ? 'Filled'
-                                  : 'Open'}
+                              {isUserInThisSpot
+                                ? 'Your position'
+                                : isYourSpot
+                                  ? 'Your spot'
+                                  : isOccupied
+                                    ? 'Filled'
+                                    : 'Open'}
                             </span>
                           </div>
                         );
@@ -622,6 +635,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                   isDisabled={
                     ronda.availableSpots === 0 || ronda.state !== 'Open'
                   }
+                  onRefetch={refetch}
                 />
 
                 {/* Only show Next Steps if user is not verified */}

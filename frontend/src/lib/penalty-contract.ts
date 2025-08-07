@@ -2,14 +2,15 @@ import { CONTRACT_ADDRESSES, NETWORK_CONFIG } from './contracts';
 
 import { ethers } from 'ethers';
 
-// Penalty Token Contract Configuration
+// Penalty Token Contract Configuration (RondaSBT - ERC721 Soulbound Token)
 export const PENALTY_CONTRACT = {
   address: CONTRACT_ADDRESSES.PENALTY_TOKEN,
   abi: [
-    'function balanceOf(address owner) view returns (uint256)',
+    'function hasPenalty(address owner) view returns (bool)',
     'function name() view returns (string)',
     'function symbol() view returns (string)',
     'function totalSupply() view returns (uint256)',
+    'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
   ],
   network: 'hedera-testnet',
 } as const;
@@ -60,16 +61,16 @@ export async function checkPenaltyTokens(
       provider
     );
 
-    console.log('📋 Calling balanceOf for penalty tokens...');
+    console.log('📋 Calling hasPenalty for penalty tokens...');
 
-    // Check penalty token balance
-    const balance = await penaltyContract?.balanceOf?.(walletAddress);
-    const penaltyCount = Number(balance);
+    // Check if address has penalty tokens (RondaSBT is a soulbound token)
+    const hasPenalty = await penaltyContract?.hasPenalty?.(walletAddress);
+    const penaltyCount = hasPenalty ? 1 : 0; // RondaSBT can only have 0 or 1 penalty token
 
     const result = {
       address: walletAddress,
       penaltyCount,
-      hasPenalties: penaltyCount > 0,
+      hasPenalties: hasPenalty || false,
       isLoading: false,
     };
 

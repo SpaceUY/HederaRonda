@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Group } from '@/local-data';
+import { SingleRondaData } from '@/hooks/use-single-ronda-contract';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
 import { formatCurrency } from '@/lib/utils';
 import { getNetworkConfig } from '@/constants/ccip-config';
@@ -22,7 +22,7 @@ import { useRoscaJoin } from '@/hooks/use-rosca-join';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
 
 interface JoinConfirmationModalProps {
-  group: Group;
+  group: SingleRondaData;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;

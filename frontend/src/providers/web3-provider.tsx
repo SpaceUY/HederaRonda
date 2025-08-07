@@ -6,7 +6,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { RainbowKitProvider } from '@rainbow-me/rainbowkit';
-import { WagmiContextProvider } from './wagmi-context';
 import { WagmiProvider } from 'wagmi';
 import { config } from '@/lib/wagmi';
 
@@ -50,9 +49,7 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     <WagmiProvider config={config}>
       <QueryClientProvider client={queryClientRef.current}>
         <RainbowKitProvider>
-          <WagmiContextProvider>
-            {children}
-          </WagmiContextProvider>
+          {children}
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

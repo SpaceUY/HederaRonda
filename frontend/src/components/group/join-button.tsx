@@ -3,30 +3,38 @@
 import { DollarSign, Shield } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Group } from '@/local-data';
 import { JoinRoscaButton } from './join-rosca-button';
 import Link from 'next/link';
+import { SingleRondaData } from '@/hooks/use-single-ronda-contract';
 import { VerificationStatus } from '@/components/wallet/verification-status';
 import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
 import { useState } from 'react';
 import { useVerification } from '@/hooks/use-verification';
 
 interface JoinButtonProps {
-  group: Group;
+  group: SingleRondaData;
   isDisabled: boolean;
+  onRefetch?: () => void;
 }
 
-export function JoinButton({ group, isDisabled }: JoinButtonProps) {
+export function JoinButton({ group, isDisabled, onRefetch }: JoinButtonProps) {
   const { verificationState } = useVerification();
   const [hasJoined, setHasJoined] = useState(false);
 
   // Check if user is already a member of this RONDA and if they can make deposits
-  const { isMember, canMakeDeposits, isRondaRunning, rondaState } = useRondaDeposit({
-    roscaContractAddress: group.address
+  const { isMember, canMakeDeposits, isRondaRunning, rondaState, isCheckingMembership } = useRondaDeposit({
+    roscaContractAddress: group.address,
+    contractData: {
+      paymentToken: group.paymentToken,
+      monthlyDeposit: BigInt(group.monthlyDeposit),
+      milestoneCount: group.milestoneCount,
+      currentState: group.stateNumber,
+    }
   });
 
   const handleJoinSuccess = () => {
     setHasJoined(true);
+    onRefetch?.();
   };
 
   // If user is already a member, show contribute button (only if RONDA is running)
@@ -87,6 +95,8 @@ export function JoinButton({ group, isDisabled }: JoinButtonProps) {
       {verificationState.isReadyToJoin ? (
         <JoinRoscaButton
           group={group}
+          isMember={isMember}
+          isCheckingMembership={isCheckingMembership}
           onSuccess={handleJoinSuccess}
         />
       ) : (

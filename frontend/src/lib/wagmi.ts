@@ -16,13 +16,15 @@ const hederaTestnet = {
     default: { 
       http: [
         'https://testnet.hashio.io/api',
-        'https://testnet.hedera.com' // Fallback
+        'https://testnet.hashio.io/api/v1',
+        'https://testnet.hashio.io/api/v1/transactions'
       ] 
     },
     public: { 
       http: [
         'https://testnet.hashio.io/api',
-        'https://testnet.hedera.com' // Fallback
+        'https://testnet.hashio.io/api/v1',
+        'https://testnet.hashio.io/api/v1/transactions'
       ] 
     },
   },
@@ -39,8 +41,9 @@ const config = getDefaultConfig({
   chains: [hederaTestnet, avalancheFuji, sepolia], 
   transports: {
     [hederaTestnet.id]: http('https://testnet.hashio.io/api', {
-      retryCount: 3,
-      retryDelay: 1000,
+      retryCount: 5,
+      retryDelay: 2000,
+      timeout: 10000,
     }), 
     [avalancheFuji.id]: http(
       process.env.NEXT_PUBLIC_AVALANCHE_FUJI_RPC_URL || 

@@ -6,21 +6,24 @@ import { useEffect, useState } from 'react';
 
 import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Group } from '@/local-data';
 import { JoinConfirmationModal } from './join-confirmation-modal';
+import { SingleRondaData } from '@/hooks/use-single-ronda-contract';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
-import { useParticipantCheck } from '@/hooks/use-participant-check';
 import { useRouter } from 'next/navigation';
 import { useWagmiReady } from '@/hooks/use-wagmi-ready';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
 
 interface JoinRoscaButtonProps {
-  group: Group;
+  group: SingleRondaData;
+  isMember: boolean;
+  isCheckingMembership: boolean;
   onSuccess?: () => void;
 }
 
 export function JoinRoscaButton({
   group,
+  isMember,
+  isCheckingMembership,
   onSuccess,
 }: JoinRoscaButtonProps) {
   const isWagmiReady = useWagmiReady();
@@ -32,22 +35,15 @@ export function JoinRoscaButton({
 
   const isNetworkSupported = isWagmiReady && chainId === 296; // Hedera Testnet
 
-  // Check if the address is already a member
-  const { isMember, isCheckingMembership, rondaState } = useParticipantCheck(
-    group.address,
-    address || '' 
-  );
-
   // Log membership status
   useEffect(() => {
     console.log('🔍 Membership check:', {
       address: address,
       isMember,
       isCheckingMembership,
-      rondaState,
       rondaAddress: group.address
     });
-  }, [address, isMember, isCheckingMembership, rondaState, group.address]);
+  }, [address, isMember, isCheckingMembership, group.address]);
 
   const handleClick = () => {
     if (isMember) {
@@ -62,9 +58,8 @@ export function JoinRoscaButton({
   };
 
   const handleSuccess = () => {
-    setIsModalOpen(false); // Close the modal
+    setIsModalOpen(false);
     onSuccess?.();
-    router.refresh();
   };
 
   if (isCheckingMembership) {
@@ -74,6 +69,8 @@ export function JoinRoscaButton({
       </Button>
     );
   }
+
+
 
   if (isMember) {
     return (

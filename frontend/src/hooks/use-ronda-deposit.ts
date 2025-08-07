@@ -65,10 +65,17 @@ interface UseRondaDepositReturn {
 
 interface UseRondaDepositParams {
   roscaContractAddress: string;
+  contractData?: {
+    paymentToken: string;
+    monthlyDeposit: bigint;
+    milestoneCount: number;
+    currentState: number;
+  };
 }
 
 export function useRondaDeposit({
   roscaContractAddress,
+  contractData,
 }: UseRondaDepositParams): UseRondaDepositReturn {
   const isWagmiReady = useWagmiReady();
   const { address } = useAccount();
@@ -85,26 +92,26 @@ export function useRondaDeposit({
   const [currentMilestone, setCurrentMilestone] = useState<number | null>(null);
   const [hasAlreadyDeposited, setHasAlreadyDeposited] = useState(false);
 
-  // Read contract data
+  // Use provided contract data or fetch it
   const { data: paymentToken } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'paymentToken',
-    query: { enabled: !!roscaContractAddress },
+    query: { enabled: !!roscaContractAddress && !contractData },
   });
 
   const { data: monthlyDepositData } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'monthlyDeposit',
-    query: { enabled: !!roscaContractAddress },
+    query: { enabled: !!roscaContractAddress && !contractData },
   });
 
   const { data: milestoneCountData } = useReadContract({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'milestoneCount',
-    query: { enabled: !!roscaContractAddress },
+    query: { enabled: !!roscaContractAddress && !contractData },
   });
 
   // Read RONDA state
@@ -112,7 +119,7 @@ export function useRondaDeposit({
     address: roscaContractAddress as `0x${string}`,
     abi: RONDA_ABI,
     functionName: 'currentState',
-    query: { enabled: !!roscaContractAddress },
+    query: { enabled: !!roscaContractAddress && !contractData },
   });
 
   // Check if user is a member
@@ -125,8 +132,13 @@ export function useRondaDeposit({
       query: { enabled: !!address && !!roscaContractAddress },
     });
 
+  const finalPaymentToken = contractData?.paymentToken || paymentToken;
+  const finalMonthlyDeposit = contractData?.monthlyDeposit || monthlyDepositData;
+  const finalMilestoneCount = contractData?.milestoneCount || milestoneCountData;
+  const finalRondaState = contractData?.currentState || (rondaStateData ? Number(rondaStateData) : null);
+
   const isMember = membershipData || false;
-  const rondaState = rondaStateData ? Number(rondaStateData) : null;
+  const rondaState = finalRondaState;
 
   // RONDA States: 0=Open, 1=Running, 2=Finalized, 3=Aborted, 4=Randomizing
   const isRondaRunning = rondaState === 1; // Only allow deposits when RONDA is in "Running" state
@@ -142,8 +154,8 @@ export function useRondaDeposit({
   });
 
   // Determine if using ETH or ERC20
-  const isETH = paymentToken === '0x0000000000000000000000000000000000000000';
-  const monthlyDepositAmount = monthlyDepositData || 0n;
+  const isETH = finalPaymentToken === '0x0000000000000000000000000000000000000000';
+  const monthlyDepositAmount = finalMonthlyDeposit || 0n;
 
   // Check balance (ETH or ERC20)
   const { data: ethBalanceData } = useBalance({
@@ -152,22 +164,22 @@ export function useRondaDeposit({
   });
 
   const { data: tokenBalanceData } = useReadContract({
-    address: paymentToken as `0x${string}`,
+    address: finalPaymentToken as `0x${string}`,
     abi: erc20Abi,
     functionName: 'balanceOf',
     args: [address!],
-    query: { enabled: !!address && !isETH && !!paymentToken },
+    query: { enabled: !!address && !isETH && !!finalPaymentToken },
   });
 
   const balance = isETH ? ethBalanceData?.value || 0n : tokenBalanceData || 0n;
 
   // Check allowance for ERC20
   const { data: allowanceData } = useReadContract({
-    address: paymentToken as `0x${string}`,
+    address: finalPaymentToken as `0x${string}`,
     abi: erc20Abi,
     functionName: 'allowance',
     args: [address!, roscaContractAddress as `0x${string}`],
-    query: { enabled: !!address && !isETH && !!paymentToken },
+    query: { enabled: !!address && !isETH && !!finalPaymentToken },
   });
 
   const currentAllowance = allowanceData || 0n;

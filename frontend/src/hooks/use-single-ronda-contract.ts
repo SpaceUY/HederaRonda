@@ -105,6 +105,10 @@ interface UseSingleRondaContractReturn {
   refetch: () => Promise<void>;
 }
 
+// Simple cache to prevent excessive API calls
+const contractCache = new Map<string, { data: SingleRondaData; timestamp: number }>();
+const CACHE_DURATION = 30000; // 30 seconds
+
 export function useSingleRondaContract(
   contractAddress: string
 ): UseSingleRondaContractReturn {
@@ -123,6 +127,15 @@ export function useSingleRondaContract(
     if (!contractAddress || !ethers.isAddress(contractAddress)) {
       setError('Invalid contract address');
       setIsLoading(false);
+      return;
+    }
+
+    // Check cache first
+    const cached = contractCache.get(contractAddress);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      setRonda(cached.data);
+      setIsLoading(false);
+      setError(null);
       return;
     }
 
@@ -154,7 +167,7 @@ export function useSingleRondaContract(
         monthlyDeposit,
         entryFee,
         paymentToken,
-        joinedParticipantsPromise,
+        participantCount,
       ] = await Promise.all([
         retryWithBackoff(() => rondaContract.currentState()),
         retryWithBackoff(() => rondaContract.participantCount()),
@@ -162,24 +175,30 @@ export function useSingleRondaContract(
         retryWithBackoff(() => rondaContract.monthlyDeposit()),
         retryWithBackoff(() => rondaContract.entryFee()),
         retryWithBackoff(() => rondaContract.paymentToken()),
-        retryWithBackoff(async () => {
+        retryWithBackoff(() => rondaContract.participantCount()),
+      ]);
+
+      // Only fetch participants if there are any (avoid unnecessary calls)
+      let joinedParticipantsPromise: string[] = [];
+      if (Number(participantCount) > 0) {
+        joinedParticipantsPromise = await retryWithBackoff(async () => {
           const participants: string[] = [];
-          let i = 0;
-          while (true) {
+          const maxToCheck = Math.min(Number(participantCount), 20); // Limit to prevent infinite loops
+          
+          for (let i = 0; i < maxToCheck; i++) {
             try {
               const participant = await rondaContract.joinedParticipants(i);
               if (!participant || participant === ethers.ZeroAddress) {
                 break;
               }
               participants.push(participant);
-              i++;
             } catch {
               break;
             }
           }
           return participants;
-        }),
-      ]);
+        });
+      }
 
       const isETH = paymentToken === ethers.ZeroAddress;
       let tokenSymbol = isETH ? 'ETH' : 'USDC';
@@ -222,29 +241,38 @@ export function useSingleRondaContract(
       const currentParticipantCount = joinedParticipantsPromise.length;
       const maxParticipantsNum = Number(maxParticipants);
 
-      // Only fetch milestone data if needed (not cached or state changed)
-      const milestones = await retryWithBackoff(async () => {
-        const result = [];
-        const milestoneCountNum = Number(milestoneCount);
-        for (let i = 0; i < milestoneCountNum; i++) {
-          try {
-            const milestone = await rondaContract.milestones(i);
-            if (!milestone) {
+      // Only fetch milestone data if there are milestones (avoid unnecessary calls)
+      let milestones: Array<{
+        index: number;
+        isCompleted: boolean;
+        totalDeposits: string;
+        requiredDeposits: string;
+      }> = [];
+      if (Number(milestoneCount) > 0) {
+        milestones = await retryWithBackoff(async () => {
+          const result = [];
+          const milestoneCountNum = Math.min(Number(milestoneCount), 12); // Limit to prevent excessive calls
+          
+          for (let i = 0; i < milestoneCountNum; i++) {
+            try {
+              const milestone = await rondaContract.milestones(i);
+              if (!milestone) {
+                break;
+              }
+              result.push({
+                index: i,
+                isCompleted: milestone[0],
+                totalDeposits: milestone[1].toString(),
+                requiredDeposits: milestone[2].toString(),
+              });
+            } catch (err) {
+              console.warn(`Could not fetch milestone ${i}:`, err);
               break;
             }
-            result.push({
-              index: i,
-              isCompleted: milestone[0],
-              totalDeposits: milestone[1].toString(),
-              requiredDeposits: milestone[2].toString(),
-            });
-          } catch (err) {
-            console.warn(`Could not fetch milestone ${i}:`, err);
-            break;
           }
-        }
-        return result;
-      });
+          return result;
+        });
+      }
 
       // Determine which participants list to use based on state
       const stateName = RONDA_STATES[stateNumber] || 'Unknown';
@@ -336,6 +364,12 @@ export function useSingleRondaContract(
         tokenDecimals,
       };
 
+      // Cache the result
+      contractCache.set(contractAddress, {
+        data: rondaData,
+        timestamp: Date.now()
+      });
+      
       setRonda(rondaData);
     } catch (err: any) {
       console.error('Error fetching RONDA contract data:', err);
@@ -367,12 +401,12 @@ export function useSingleRondaContract(
   }, [debouncedFetch]);
 
   const refetch = useCallback(async (): Promise<void> => {
-    // Clear cache on manual refetch
+    contractCache.delete(contractAddress);
     contractRef.current = null;
     tokenContractRef.current = null;
     providerInstance = null;
     await fetchRondaData();
-  }, [fetchRondaData]);
+  }, [fetchRondaData, contractAddress]);
 
   return {
     ronda,
