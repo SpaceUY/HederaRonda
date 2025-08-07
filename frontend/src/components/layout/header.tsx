@@ -215,7 +215,7 @@ export function Header() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Balance:</span>
                 <span className="font-medium">
-                  {parseFloat(balance).toFixed(6)} ETH
+                  {parseFloat(balance).toFixed(6)} HBAR
                 </span>
               </div>
             )}
@@ -305,7 +305,7 @@ export function Header() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Balance:</span>
                   <span className="font-medium text-xs">
-                    {parseFloat(balance).toFixed(4)} ETH
+                    {parseFloat(balance).toFixed(4)} HBAR
                   </span>
                 </div>
               )}

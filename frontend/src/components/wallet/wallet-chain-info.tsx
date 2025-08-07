@@ -1,14 +1,14 @@
 'use client';
 
-import { Wallet, Network, Coins, AlertTriangle, CheckCircle, Copy } from 'lucide-react';
-import { useState } from 'react';
-
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle, CheckCircle, Coins, Copy, Network, Wallet } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useWalletInfo } from '@/hooks/use-wallet-info';
 import { formatCurrency } from '@/lib/utils';
+import { useState } from 'react';
+import { useWalletInfo } from '@/hooks/use-wallet-info';
 
 interface WalletChainInfoProps {
   showBalance?: boolean;
@@ -66,7 +66,7 @@ export function WalletChainInfo({
         {showBalance && balance && (
           <div className="flex items-center space-x-2">
             <Coins className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">{parseFloat(balance).toFixed(4)} ETH</span>
+                            <span className="text-sm">{parseFloat(balance).toFixed(4)} HBAR</span>
           </div>
         )}
       </div>
@@ -158,7 +158,7 @@ export function WalletChainInfo({
                   {isLoading ? (
                     <div className="h-4 w-16 bg-muted animate-pulse rounded" />
                   ) : balance ? (
-                    `${parseFloat(balance).toFixed(6)} ETH`
+                    `${parseFloat(balance).toFixed(6)} HBAR`
                   ) : (
                     'Unable to load'
                   )}
@@ -168,7 +168,7 @@ export function WalletChainInfo({
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">USD Value:</span>
                   <span className="font-medium text-muted-foreground">
-                    {formatCurrency(parseFloat(balance) * 2500)} {/* Mock ETH price */}
+                    {formatCurrency(parseFloat(balance) * 0.05)} {/* Mock HBAR price */}
                   </span>
                 </div>
               )}

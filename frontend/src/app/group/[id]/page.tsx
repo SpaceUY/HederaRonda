@@ -86,7 +86,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                 </p>
                 <div className="space-y-2 text-sm text-muted-foreground">
                   <p>• Verify the contract address is correct</p>
-                  <p>• Check that the contract is deployed on Sepolia</p>
+                  <p>• Check that the contract is deployed on Hedera</p>
                   <p>• Ensure your network connection is stable</p>
                 </div>
               </div>
@@ -114,7 +114,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                       Loading RONDA Contract
                     </h3>
                     <p className="text-muted-foreground">
-                      Fetching data from Sepolia testnet...
+                      Fetching data from Hedera testnet...
                     </p>
                     <p className="mt-2 font-mono text-sm text-muted-foreground">
                       {params.id.slice(0, 10)}...{params.id.slice(-8)}
@@ -184,7 +184,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
               </span>
               <Button variant="ghost" size="sm" asChild className="ml-2">
                 <a
-                  href={`https://sepolia.etherscan.io/address/${ronda.address}`}
+                  href={`https://hashscan.io/testnet/address/${ronda.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center space-x-1"
@@ -596,7 +596,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                             </Badge>
                             <Button variant="ghost" size="sm" asChild>
                               <a
-                                href={`https://sepolia.etherscan.io/address/${participant}`}
+                                href={`https://hashscan.io/testnet/address/${participant}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                               >
@@ -667,7 +667,7 @@ export default function GroupDetailPage({ params }: GroupDetailPageProps) {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Network</span>
-                  <span className="font-medium">Sepolia Testnet</span>
+                  <span className="font-medium">Hedera Testnet</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Payment Token</span>

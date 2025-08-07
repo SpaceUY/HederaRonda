@@ -8,59 +8,90 @@ RONDA Web3 digitizes ["tandas" (informal loan clubs)](https://en.wikipedia.org/w
 
 ## How does RONDA Web3 work?
 
-A group of 10 people is formed, each contributing monthly (e.g., $100).
-An auction is held for the early slots (1–4), where those who want the money first pay a commission (%). Each slot guarantees a minimum commission, the rest goes to the protocol.
-Slot 5 is neutral, with no cost or gain.
-Slots 6–10 are assigned by lottery using Chainlink VRF. These receive the money at the end, but earn interest.
-The commissions paid by slots 1–4 go into a common pool and are redistributed to the protocol.
+A group of participants is formed, each contributing monthly to a shared pool.
+Participants take turns receiving payouts based on a predefined schedule.
+The system uses smart contracts to automate payments, track contributions, and manage penalties for missed payments.
+All transactions are transparent and verifiable on the blockchain.
 
+### 📈 Example RONDA Structure
 
-### 📈 Example Distribution
+| Participant | Payout Order | Status |
+|-------------|-------------|---------|
+| Alice       | 1st         | Paid    |
+| Bob         | 2nd         | Paid    |
+| Carol       | 3rd         | Pending |
+| David       | 4th         | Pending |
+| Eve         | 5th         | Pending |
 
-| Slot | Assignment      | Fee / Interest |
-|------|----------------|---------------|
-| 1    | Auction        | Pays >=+10%   |
-| 2    | Auction        | Pays >=+7.5%  |
-| 3    | Auction        | Pays >=+5%    |
-| 4    | Auction        | Pays >=+2.5%  |
-| 5    | Neutral        | 0%            |
-| 6    | Neutral        | 0%            |
-| 7    | Lottery (VRF)  | Earns +2.5%   |
-| 8    | Lottery (VRF)  | Earns +5%     |
-| 9    | Lottery (VRF)  | Earns +7.5%   |
-| 10   | Lottery (VRF)  | Earns +10%    |
-
-
-### Revenue Streams
-- Auction fees from early slot premiums
-- Default penalties (3x contribution for re-entry)
-- Protocol fees on successful circle completion
+### Key Features
+- **Automated Payments**: Smart contracts handle all transactions
+- **Penalty System**: SBT tokens track missed payments
+- **Transparency**: All data is publicly verifiable
+- **No Trust Required**: Code enforces all rules
 
 ## 🚀 Project Architecture
 
 ### Frontend (`/frontend`)
-The UI is rapidly built and iterated using [Bolt.new](https://bolt.new), enabling fast prototyping and seamless integration with modern Web3 tools. The interface is clean, mobile-friendly, and optimized for onboarding, group management, and real-time RONDA participation.
+Modern, responsive web application built with Next.js 14 and TypeScript.
 
 - **Framework**: Next.js 14 with TypeScript and App Router
 - **Web3 Integration**: Wagmi, Viem, RainbowKit for wallet connectivity
 - **UI/UX**: Tailwind CSS + shadcn/ui components
-- **State Management**: Zustand for application state
+- **State Management**: React hooks for application state
 
 ### Smart Contracts (`/contracts`)
+Simple, secure smart contracts built with Foundry.
+
 - **Development**: Foundry framework with Solidity
-- **Core Logic**: RONDA circles, factory deployment, reputation management
-- **External Integrations**: Chainlink VRF, CCIP, identity verification
+- **Core Logic**: RONDA circles, factory deployment, penalty management
+- **Architecture**: Simple, non-upgradeable contracts for maximum trust
+- **Deployment**: Hedera Testnet for fast, cost-effective transactions
 
-### Supporting Entities
-- **Identity Providers**: World ID for Sybil resistance
-- **Real world data provider**: Chainlink services for randomness and cross-chain operations
+### Blockchain
+- **Network**: Hedera Testnet (Chain ID: 296)
+- **Explorer**: HashScan Testnet
+- **Benefits**: Fast finality, low fees, EVM compatibility
 
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- Foundry
+- Hedera Testnet account
+
+### Deployment
+1. **Clone and setup**:
+   ```bash
+   git clone <repository>
+   cd chainlinkronda/contracts
+   cp env.example .env
+   # Update .env with your Hedera credentials
+   ```
+
+2. **Deploy contracts**:
+   ```bash
+   forge build
+   forge script script/DeployHedera.s.sol --rpc-url https://testnet.hashio.io/api --broadcast --gas-price 1000000000 --legacy
+   ```
+
+3. **Update frontend config** with the deployed addresses:
+   - Update `frontend/src/lib/contracts.ts` with new contract addresses
+   - Update `frontend/src/constants/network-config.ts` with new addresses
+
+4. **Start frontend**:
+   ```bash
+   cd ../frontend
+   npm install
+   npm run dev
+   ```
+
+📖 **For detailed deployment instructions, see [contracts/DEPLOYMENT.md](contracts/DEPLOYMENT.md)**
 
 ## 📁 Repository Structure
 
 ```
 RONDA-web3/
-├── frontend/                    # Next.js application (Bolt.new UI)
+├── frontend/                    # Next.js application
 │   ├── src/
 │   │   ├── app/                # App router pages and layouts
 │   │   │   ├── dashboard/      # Dashboard page
@@ -73,7 +104,7 @@ RONDA-web3/
 │   │   ├── hooks/              # Custom hooks for contract and app logic
 │   │   ├── lib/                # Utilities and contract configs
 │   │   ├── utils/              # General utilities
-│   │   ├── constants/          # App-wide constants
+│   │   ├── constants/          # App-wide constants and ABIs
 │   │   ├── types/              # TypeScript types
 │   │   ├── providers/          # Context and providers
 │   │   ├── sections/           # Page sections
@@ -84,79 +115,56 @@ RONDA-web3/
 │
 └── contracts/                  # Solidity smart contracts (Foundry)
     ├── src/                    # Core contract source files
+    │   ├── Ronda.sol           # Main RONDA contract
+    │   ├── RondaFactorySimple.sol  # Factory for creating RONDAs
+    │   └── RondaSBT.sol        # Penalty token (Soulbound Token)
     ├── test/                   # Foundry test suite
-    ├── script/                 # Deployment/config scripts
-    └── lib/                    # External dependencies (OpenZeppelin, Chainlink, etc)
+    ├── script/                 # Deployment scripts
+    │   ├── DeployHedera.s.sol  # Main deployment script
+    │   ├── TestCreateRonda.s.sol # Test script for creating RONDAs
+    │   └── DeployMockToken.s.sol # Mock token deployment
+    └── lib/                    # External dependencies (OpenZeppelin, etc)
 ```
-
-## 🔗 Chainlink Usage in Smart Contracts
-
-The following files use Chainlink services (VRF, CCIP):
-
-- [`frontend/src/hooks/use-ccip.ts`](frontend/src/hooks/use-ccip.ts) — **CCIP** (CCIP getFee)
-- [`contracts/src/Ronda.sol`](contracts/src/Ronda.sol) — **VRF** (randomness), **CCIP** (cross-chain receiver)
-- [`contracts/src/RondaFactory.sol`](contracts/src/RondaFactory.sol) — **VRF** (subscription management), **CCIP** (management)
-- [`contracts/src/RondaSender.sol`](contracts/src/RondaSender.sol) — **CCIP** (message sending)
-- [`contracts/script/TransferSubscriptionOwnership.s.sol`](contracts/script/TransferSubscriptionOwnership.s.sol) — **VRF** (subscription transfer)
-- [`contracts/test/CCIPChainManagement.t.sol`](contracts/test/CCIPChainManagement.t.sol) — **VRF/CCIP** (testing)
-- [`contracts/test/RondaFactory.t.sol`](contracts/test/RondaFactory.t.sol) — **VRF/CCIP** (testing)
-- [`contracts/test/CCIPRonda.t.sol`](contracts/test/CCIPRonda.t.sol) — **CCIP** (testing)
-- [`contracts/test/Ronda.t.sol`](contracts/test/Ronda.t.sol) — **VRF/CCIP** (testing)
 
 ## 🛡️ Security
 
-### Identity & Privacy
-- Privacy-preserving human verification
-- No KYC requirements
-- Minimal data collection
-
 ### Smart Contract Security
-- Foundry test coverage
-- Formal verification preparation
-- Multi-signature emergency controls
+- **Simple Architecture**: Non-upgradeable contracts for maximum transparency
+- **Foundry Testing**: Comprehensive test coverage
+- **OpenZeppelin**: Battle-tested libraries and patterns
+- **Penalty System**: SBT tokens prevent abuse
 
 ### Economic Security
-- Incentive alignment through fee structure
-- Social enforcement through reputation
-- Automated penalty application
+- **Automated Penalties**: Smart contracts enforce rules
+- **Transparent Operations**: All data on-chain
+- **No Trust Required**: Code is law
 
 ## 🔮 Roadmap
 
-### 🤖 Automated Payments
-Chainlink Automation Integration
-Currently, Ronda admins needs to submit the ronda delivery milestone by milestone mannualy. We'll implement automatic payment delivery so the system can send the payment on time and deliver penalties automatically. This eliminates the need of manual work in the whole application flow.
+### 🤖 Enhanced Automation
+- Automated payment delivery
+- Smart contract-based milestone tracking
+- Reduced manual intervention
 
-### 🛡️ Enhanced Identity Security
-On-Chain Humanity Validation
-Currently, identity verification happens once during signup. We'll implement continuous validation where each transaction requires proving you're the same verified human, regardless of which wallet you use. This prevents bad actors from creating multiple accounts or transferring verified status between wallets.
+### 🛡️ Identity & Reputation
+- Enhanced identity verification
+- Credit score system for participants
+- Positive reputation tracking
 
-### 🏆 Credit Score System
-Enhanced Reputation with Positive Tokens
-Right now, we only mark bad actors. We'll create a full credit history system where good participants earn positive reputation points. Think of it like a blockchain credit score - the more circles you complete successfully, the better rates and access you get.
-
-### 💰 Real-World Asset Support
-RWA Integration with Ondo Finance
-Instead of just using regular USDC, participants could contribute with assets that earn interest while sitting in the circle pot. For example, tokenized treasury bills that earn 4-5% annually, making the whole circle more profitable for everyone.
+### 💰 Asset Support
+- Support for various payment tokens
+- Interest-bearing asset integration
+- Cross-chain compatibility
 
 ### 🌐 Multi-Chain Expansion
-Deploy to More Blockchains
-Currently limited to Arbitrum and Ethereum. We'll expand to:
-
-- Optimism - Cheaper transactions
-- Base - Easy onramp for new crypto users
-- Polygon - Established user base
-
-This means people can join circles from whichever blockchain they prefer, increasing participation.
+- Ethereum mainnet deployment
+- Polygon integration
+- Base network support
 
 ### 🗳️ Community Governance
-$RONDA Token and DAO
-Give users voting power over important decisions like:
-
-- What fees the platform charges
-- Which new features to build first
-- How to spend protocol revenue
-
-Token holders vote on proposals, making RONDA truly community-owned rather than controlled by a single team.
+- DAO governance structure
+- Community voting on protocol changes
+- Decentralized decision making
 
 ---
 

@@ -18,7 +18,7 @@ interface WalletInfo {
 
 const CHAIN_NAMES: Record<number, string> = {
   1: 'Ethereum Mainnet',
-  11155111: 'Sepolia Testnet',
+  296: 'Hedera Testnet',
   421614: 'Arbitrum Sepolia',
   137: 'Polygon Mainnet',
   80001: 'Polygon Mumbai',

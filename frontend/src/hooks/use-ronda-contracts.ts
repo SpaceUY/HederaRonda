@@ -2,13 +2,13 @@
 
 import {
   CONTRACT_ADDRESSES,
-  FACTORY_ABI,
   NETWORK_CONFIG,
   RONDA_ABI,
   RONDA_STATES,
 } from '@/lib/contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { RONDA_FACTORY_ABI } from '@/constants/abis/ronda-factory-abi';
 import { ethers } from 'ethers';
 
 export interface RondaContractData {
@@ -116,7 +116,7 @@ export function useRondaContracts(): UseRondaContractsReturn {
       if (!factoryContractRef.current) {
         factoryContractRef.current = new ethers.Contract(
           CONTRACT_ADDRESSES.PROXY_FACTORY,
-          FACTORY_ABI,
+          RONDA_FACTORY_ABI,
           provider
         );
       }
@@ -128,9 +128,9 @@ export function useRondaContracts(): UseRondaContractsReturn {
 
       // Get all RONDA instances through proxy
       const [rondaCount, rondaInstances] = await Promise.all([
-        retryWithBackoff(() => factoryContract.getRondaCount()),
-        retryWithBackoff(() => factoryContract.getRondaInstances()),
-      ]);
+        retryWithBackoff(() => (factoryContract as any).getRondaCount()),
+        retryWithBackoff(() => (factoryContract as any).getRondaInstances()),
+      ]) as [bigint, string[]];
 
       if (Number(rondaCount) === 0) {
         setRondas([]);

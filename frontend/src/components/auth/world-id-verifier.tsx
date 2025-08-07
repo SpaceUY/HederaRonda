@@ -1,15 +1,7 @@
 'use client';
 
-import {
-  IDKitWidget,
-  VerificationLevel,
-  ISuccessResult,
-} from '@worldcoin/idkit';
-import { Shield, CheckCircle, AlertTriangle } from 'lucide-react';
-import { useState } from 'react';
-
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import { AlertTriangle, CheckCircle, Shield } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -17,6 +9,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  IDKitWidget,
+  ISuccessResult,
+  VerificationLevel,
+} from '@worldcoin/idkit';
+
+import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 
 interface WorldIdVerifierProps {
   onSuccess: (proof: ISuccessResult) => void;
@@ -130,26 +130,24 @@ export function WorldIdVerifier({
             </p>
           </div>
 
-          {/* Demo button for development */}
-          <Button
-            onClick={() => {
-              console.log('🧪 Using demo verification for development');
-              // Mock verification for demo purposes
-              const mockProof: ISuccessResult = {
-                merkle_root: 'demo_merkle_root_' + Date.now(),
-                nullifier_hash: 'demo_nullifier_hash_' + Date.now(),
-                proof: 'demo_proof_' + Date.now(),
-                verification_level: VerificationLevel.Device,
-              };
-              console.log('🎭 Demo proof generated:', mockProof);
-              handleProof(mockProof);
-            }}
-            className="w-full mt-4"
-            variant="outline"
-          >
-            <Shield className="h-4 w-4 mr-2" />
-            Use Demo Verification (Development Only)
-          </Button>
+          {process.env.NODE_ENV === 'development' && (
+            <Button
+              onClick={() => {
+                const mockProof: ISuccessResult = {
+                  merkle_root: 'demo_merkle_root_' + Date.now(),
+                  nullifier_hash: 'demo_nullifier_hash_' + Date.now(),
+                  proof: 'demo_proof_' + Date.now(),
+                  verification_level: VerificationLevel.Device,
+                };
+                handleProof(mockProof);
+              }}
+              className="w-full mt-4"
+              variant="outline"
+            >
+              <Shield className="h-4 w-4 mr-2" />
+              Use Demo Verification (Development Only)
+            </Button>
+          )}
         </CardContent>
       </Card>
     );

@@ -178,7 +178,7 @@ E.g.:
 
 - Use OpenZeppelin's SafeERC20 for interacting with ERC20 tokens.
 
-- Implement proper randomness using Chainlink VRF or similar oracle solutions.
+- Implement proper randomness using on-chain randomness or similar oracle solutions.
 
 - Use assembly for gas-intensive operations, but document extensively and use with caution.
 

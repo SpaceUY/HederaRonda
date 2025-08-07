@@ -1,15 +1,14 @@
 'use client';
 
-import { AlertTriangle, Shield, RefreshCw, ExternalLink } from 'lucide-react';
-import { useState } from 'react';
+import { AlertTriangle, ExternalLink, RefreshCw, Shield } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { usePenaltyCheck } from '@/hooks/use-penalty-check';
 import { PENALTY_CONTRACT } from '@/lib/penalty-contract';
-
 import { PenaltyStatusCard } from './penalty-status-badge';
+import { usePenaltyCheck } from '@/hooks/use-penalty-check';
+import { useState } from 'react';
 
 interface PenaltyCheckerProps {
   walletAddress?: string;
@@ -69,12 +68,12 @@ export function PenaltyChecker({
               <div className="text-sm font-medium mb-1">Contract Information</div>
               <div className="space-y-1 text-xs text-muted-foreground">
                 <div>Address: {PENALTY_CONTRACT.address}</div>
-                <div>Network: Ethereum Sepolia Testnet</div>
+                <div>Network: Hedera Testnet</div>
                 <div>Method: balanceOf(address) → uint256</div>
               </div>
               <Button variant="ghost" size="sm" asChild className="mt-2 h-auto p-0">
                 <a
-                  href={`https://sepolia.etherscan.io/address/${PENALTY_CONTRACT.address}`}
+                  href={`https://hashscan.io/testnet/address/${PENALTY_CONTRACT.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center space-x-1 text-xs"

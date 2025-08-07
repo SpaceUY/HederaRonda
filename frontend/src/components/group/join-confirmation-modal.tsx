@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { SingleRondaData } from '@/hooks/use-single-ronda-contract';
 import { WalletChainInfo } from '@/components/wallet/wallet-chain-info';
 import { formatCurrency } from '@/lib/utils';
-import { getNetworkConfig } from '@/constants/ccip-config';
+import { getNetworkConfig } from '@/constants/network-config';
 import { useRoscaJoin } from '@/hooks/use-rosca-join';
 import { useWalletInfo } from '@/hooks/use-wallet-info';
 
@@ -52,14 +52,12 @@ export function JoinConfirmationModal({
     userChainId: chainId || undefined,
     targetChainId: 296, // Hedera Testnet
     rondaSenderAddress: networkConfig?.rondaSenderAddress,
-    onSuccess: () => {
-      console.log('🎉 Modal onSuccess callback triggered');
-      setTimeout(() => {
-        console.log('🔒 Closing modal after 2 second delay');
-        onClose();
-        onSuccess?.();
-      }, 2000);
-    },
+          onSuccess: () => {
+        setTimeout(() => {
+          onClose();
+          onSuccess?.();
+        }, 2000);
+      },
   });
 
   useEffect(() => {

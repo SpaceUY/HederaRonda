@@ -1,20 +1,17 @@
 'use client';
 
-import { ArrowLeft, DollarSign, Calendar, AlertTriangle, CheckCircle, Loader2, ChevronRight, Home, Users } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-
-
-import { Header } from '@/components/layout/header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle, Calendar, CheckCircle, ChevronRight, DollarSign, Home, Loader2, Users } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
-import { formatCurrency, formatDate } from '@/lib/utils';
-
 import { DepositButton } from './deposit-button';
+import { Header } from '@/components/layout/header';
+import Link from 'next/link';
+import { useRondaDeposit } from '@/hooks/use-ronda-deposit';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 interface ContributionFlowProps {
   group: any; // RONDA contract data
@@ -160,7 +157,7 @@ export function ContributionFlow({ group }: ContributionFlowProps) {
                 <DollarSign className="h-8 w-8 text-primary" />
               </div>
               <CardTitle className="text-3xl font-bold">
-                {group.monthlyDepositFormatted?.toFixed(4)} {group.tokenSymbol || 'ETH'}
+                {group.monthlyDepositFormatted?.toFixed(4)} {group.tokenSymbol || 'HBAR'}
               </CardTitle>
               <CardDescription>Monthly contribution amount</CardDescription>
             </CardHeader>
@@ -261,8 +258,8 @@ export function ContributionFlow({ group }: ContributionFlowProps) {
             </CardHeader>
             <CardContent>
               <DepositButton
-                roscaContractAddress={group.address}
-                milestoneIndex={selectedMilestone}
+                group={group}
+                milestone={selectedMilestone}
                 onSuccess={handleDepositSuccess}
               />
             </CardContent>

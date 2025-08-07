@@ -7,7 +7,6 @@ import {RondaFactory} from "../src/RondaFactory.sol";
 import {RondaSBT} from "../src/RondaSBT.sol";
 import {MockToken} from "./mocks/MockToken.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {MockVRFCoordinator} from "./mocks/MockVrfCoordinator.sol";
 
 contract RondaTest is Test {
     Ronda public ronda;
@@ -16,7 +15,6 @@ contract RondaTest is Test {
     ERC1967Proxy public proxy;
     MockToken public token;
     RondaSBT public penaltyToken;
-    MockVRFCoordinator public mockVRFCoordinator;
     address owner = address(this);
     address alice = address(0x1);
     address bob = address(0x2);
@@ -30,21 +28,10 @@ contract RondaTest is Test {
     int256[] interestDistribution;
     uint256 totalNeeded; // Total tokens needed per participant
 
-    // VRF parameters
-    address public vrfCoordinator = address(0x123);
-    uint256 public subscriptionId;
-    bytes32 public keyHash = bytes32(uint256(1));
-    uint32 public callbackGasLimit = 100000;
-
-    uint256 lastRequestId;
 
     function setUp() public {
         token = new MockToken();
         penaltyToken = new RondaSBT();
-        mockVRFCoordinator = new MockVRFCoordinator();
-
-        // Create a subscription for the factory
-        subscriptionId = mockVRFCoordinator.createSubscription();
 
         // Deploy the factory implementation
         factoryImplementation = new RondaFactory();
@@ -52,12 +39,7 @@ contract RondaTest is Test {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             RondaFactory.initialize.selector,
-            address(mockVRFCoordinator),
-            subscriptionId,
-            keyHash,
-            callbackGasLimit,
-            address(penaltyToken),
-            router
+            address(penaltyToken)
         );
 
         // Deploy the proxy contract
@@ -107,8 +89,8 @@ contract RondaTest is Test {
         token.approve(address(ronda), type(uint256).max);
     }
 
-    // Helper function to setup participants and handle VRF
-    function _setupParticipantsAndVRF() internal {
+    // Helper function to setup participants
+    function _setupParticipants() internal {
         // Join all participants
         vm.prank(alice);
         ronda.joinRonda();
@@ -116,20 +98,9 @@ contract RondaTest is Test {
         ronda.joinRonda();
         vm.prank(carol);
         ronda.joinRonda();
-
-        // Get the request ID from the mock coordinator
-        lastRequestId = mockVRFCoordinator.lastRequestId();
     }
 
-    function _mockVRFResponse() internal {
-        // Mock VRF response by calling the Ronda's rawFulfillRandomWords
-        uint256[] memory randomWords = new uint256[](1);
-        randomWords[0] = 123; // Some random number
 
-        // Call rawFulfillRandomWords on the Ronda contract
-        vm.prank(address(mockVRFCoordinator));
-        ronda.rawFulfillRandomWords(lastRequestId, randomWords);
-    }
 
     function testJoinRonda() public {
         vm.prank(alice);
@@ -146,13 +117,12 @@ contract RondaTest is Test {
         assertTrue(hasJoinedCarol);
         assertEq(
             uint(ronda.currentState()),
-            uint(Ronda.RondaState.Randomizing)
+            uint(Ronda.RondaState.Running)
         );
     }
 
     function testDepositAndDeliver() public {
-        _setupParticipantsAndVRF();
-        _mockVRFResponse();
+        _setupParticipants();
 
         // All deposit for milestone 0
         vm.prank(alice);
@@ -216,8 +186,7 @@ contract RondaTest is Test {
     }
 
     function testPenaltyIssuance() public {
-        _setupParticipantsAndVRF();
-        _mockVRFResponse();
+        _setupParticipants();
 
         // Only alice and bob deposit for milestone 0
         vm.prank(alice);
@@ -236,8 +205,7 @@ contract RondaTest is Test {
     }
 
     function testPenaltyRemoval() public {
-        _setupParticipantsAndVRF();
-        _mockVRFResponse();
+        _setupParticipants();
 
         // Only alice and bob deposit for milestone 0 (carol will get penalty)
         vm.prank(alice);
@@ -259,7 +227,7 @@ contract RondaTest is Test {
     }
 
     function testNonTransferablePenalty() public {
-        _setupParticipantsAndVRF();
+        _setupParticipants();
         // Try to transfer penalty token (should revert)
         address slot0Participant = ronda.slotToParticipant(0);
         vm.expectRevert("Token is non-transferable");
@@ -299,8 +267,7 @@ contract RondaTest is Test {
     }
 
     function testReceiveRandomnessFromFactory() public {
-        _setupParticipantsAndVRF();
-        _mockVRFResponse();
+        _setupParticipants();
         // This test is just to ensure the randomness flow works and doesn't revert
     }
 }

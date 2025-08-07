@@ -261,7 +261,7 @@ export function CreateRondaForm() {
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <a
-                    href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                    href={`https://hashscan.io/testnet/transaction/${txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -598,7 +598,7 @@ export function CreateRondaForm() {
               <div>
                 <span className="text-muted-foreground">Estimated Cost:</span>
                 <div className="font-medium">
-                  {parseFloat(estimatedGasCost).toFixed(6)} ETH
+                  {parseFloat(estimatedGasCost).toFixed(6)} HBAR
                 </div>
               </div>
             </div>

@@ -37,16 +37,3 @@ export interface Group {
   rules?: string[];
   tokenDecimals?: number;
 }
-
-// Mock data is no longer needed since we're using contract data
-export const mockGroups: Group[] = [];
-
-// Helper function to get a group by ID
-export function getGroupById(id: string): Group | undefined {
-  return mockGroups.find(group => group.id === id);
-}
-
-// Helper function to get all group IDs for static generation
-export function getAllGroupIds(): string[] {
-  return mockGroups.map(group => group.id);
-}

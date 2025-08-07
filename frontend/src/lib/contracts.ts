@@ -30,66 +30,20 @@ export const RONDA_ABI = [
   {"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"slotToParticipant","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"}
 ] as const;
 
-// Factory ABI - Updated to match the actual deployed proxy contract
-export const FACTORY_ABI = [
-  // Read functions from the proxy contract
-  {
-    "inputs": [],
-    "name": "getRondaCount",
-    "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getRondaInstances",
-    "outputs": [{"internalType": "address[]", "name": "", "type": "address[]"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-    "name": "rondaInstances",
-    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  // Write functions from the proxy contract
-  {
-    "inputs": [
-      {"internalType": "uint256", "name": "_participantCount", "type": "uint256"},
-      {"internalType": "uint256", "name": "_milestoneCount", "type": "uint256"},
-      {"internalType": "uint256", "name": "_monthlyDeposit", "type": "uint256"},
-      {"internalType": "uint256", "name": "_entryFee", "type": "uint256"},
-      {"internalType": "int256[]", "name": "_interestDistribution", "type": "int256[]"},
-      {"internalType": "address", "name": "_paymentToken", "type": "address"}
-    ],
-    "name": "createRonda",
-    "outputs": [{"internalType": "address", "name": "", "type": "address"}],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  // Events
-  {
-    "anonymous": false,
-    "inputs": [
-      {"indexed": true, "internalType": "address", "name": "rondaAddress", "type": "address"},
-      {"indexed": false, "internalType": "uint256", "name": "participantCount", "type": "uint256"},
-      {"indexed": false, "internalType": "uint256", "name": "milestoneCount", "type": "uint256"},
-      {"indexed": false, "internalType": "uint256", "name": "monthlyDeposit", "type": "uint256"},
-      {"indexed": false, "internalType": "uint256", "name": "entryFee", "type": "uint256"},
-      {"indexed": false, "internalType": "address", "name": "paymentToken", "type": "address"},
-      {"indexed": false, "internalType": "address", "name": "penaltyToken", "type": "address"}
-    ],
-    "name": "RondaCreated",
-    "type": "event"
-  }
-] as const;
+
+
+// Working Contract addresses
+// export const CONTRACT_ADDRESSES = {
+//   PROXY_FACTORY: "0xf1dB7Ea49c20Ecf95e6ab8F57889769F4C34b0fb",
+//   PENALTY_TOKEN: "0x8550C69142c56De276cC351000F91Eb36Ed2Be56",
+//   MOCK_USDC: "0xdEEa7Fe28c04315CFfe83c28eEF56A01A3E8d642"
+// } as const;
+
 
 // Contract addresses
 export const CONTRACT_ADDRESSES = {
-  PROXY_FACTORY: "0xf1dB7Ea49c20Ecf95e6ab8F57889769F4C34b0fb",
-  PENALTY_TOKEN: "0x8550C69142c56De276cC351000F91Eb36Ed2Be56",
+  PROXY_FACTORY: "0xe11aE439bCa99F988C325e2cc9811a2219106EB7",
+  PENALTY_TOKEN: "0x5f0A722306F1A5016ffa53bae98BB84439bB8219",
   MOCK_USDC: "0xdEEa7Fe28c04315CFfe83c28eEF56A01A3E8d642"
 } as const;
 

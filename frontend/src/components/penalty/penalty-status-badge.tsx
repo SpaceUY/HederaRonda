@@ -1,10 +1,10 @@
 'use client';
 
-import { AlertTriangle, Shield, Loader2, ExternalLink } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Loader2, Shield } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PENALTY_CONTRACT } from '@/lib/penalty-contract';
 
 interface PenaltyStatusBadgeProps {
@@ -104,7 +104,7 @@ export function PenaltyStatusCard({
             )}
             <Button variant="outline" size="sm" asChild>
               <a
-                href={`https://sepolia.etherscan.io/address/${PENALTY_CONTRACT.address}`}
+                href={`https://hashscan.io/testnet/address/${PENALTY_CONTRACT.address}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -164,7 +164,7 @@ export function PenaltyStatusCard({
           <div className="flex gap-2">
             <Button variant="outline" size="sm" asChild>
               <a
-                href={`https://sepolia.etherscan.io/token/${PENALTY_CONTRACT.address}?a=${walletAddress}`}
+                href={`https://hashscan.io/testnet/token/${PENALTY_CONTRACT.address}?a=${walletAddress}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >

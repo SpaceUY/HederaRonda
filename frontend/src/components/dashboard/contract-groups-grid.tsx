@@ -1,31 +1,27 @@
 'use client';
 
-import { ethers } from 'ethers';
-import {
-  Users,
-  DollarSign,
-  Clock,
-  Eye,
-  RefreshCw,
-  AlertTriangle,
-  Network,
-  Award,
-} from 'lucide-react';
-import Link from 'next/link';
-import { useState, useEffect } from 'react';
-
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import {
+  AlertTriangle,
+  Award,
+  Clock,
+  DollarSign,
+  Eye,
+  Network,
+  RefreshCw,
+  Users,
+} from 'lucide-react';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { RondaContractData } from '@/hooks/use-ronda-contracts';
-import { NETWORK_CONFIG } from '@/lib/contracts';
 import { tokenFormatter } from '@/lib/token-formatter';
 
 interface ContractGroupsGridProps {
@@ -186,11 +182,11 @@ export function ContractGroupsGrid({
             Proxy Connection Failed
           </h3>
           <p className="mb-4 text-muted-foreground">
-            Unable to connect to the RONDA proxy contract on Sepolia testnet.
+            Unable to connect to the RONDA factory contract on Hedera testnet.
           </p>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>• Check your internet connection</p>
-            <p>• Verify Sepolia network is accessible</p>
+            <p>• Verify Hedera network is accessible</p>
             <p>• Proxy address: 0xA2AC48Cf8113677F9D708fF91dfBB6464E386368</p>
           </div>
         </div>
@@ -209,7 +205,7 @@ export function ContractGroupsGrid({
             <div>
               <h3 className="text-lg font-semibold">Loading RONDA Contracts</h3>
               <p className="text-muted-foreground">
-                Fetching data via proxy from Sepolia testnet...
+                Fetching data from Hedera testnet...
               </p>
             </div>
           </div>
@@ -251,7 +247,7 @@ export function ContractGroupsGrid({
         <Alert>
           <Network className="h-4 w-4" />
           <AlertDescription className="flex items-center justify-between">
-            <span>No RONDA contracts found via proxy on Sepolia testnet</span>
+            <span>No RONDA contracts found on Hedera testnet</span>
             <Button variant="outline" size="sm" onClick={onRefetch}>
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
@@ -263,12 +259,12 @@ export function ContractGroupsGrid({
           <Users className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
           <h3 className="mb-2 text-lg font-semibold">No RONDAs Available</h3>
           <p className="mb-4 text-muted-foreground">
-            No RONDA contracts are currently available via the proxy on Sepolia
+            No RONDA contracts are currently available on Hedera testnet
             testnet.
           </p>
           <div className="space-y-2 text-sm text-muted-foreground">
             <p>• Proxy Contract: 0xA2AC48Cf8113677F9D708fF91dfBB6464E386368</p>
-            <p>• Network: Sepolia Testnet (Chain ID: 11155111)</p>
+            <p>• Network: Hedera Testnet (Chain ID: 296)</p>
             <p>• Check back later for new RONDAs</p>
           </div>
         </div>
@@ -510,7 +506,7 @@ export function ContractGroupsGrid({
         <div className="space-y-1 text-xs text-muted-foreground">
           <div>Proxy Contract: 0xA2AC48Cf8113677F9D708fF91dfBB6464E386368</div>
           <div>
-            Network: Sepolia Testnet • Live data from RONDA smart contracts
+            Network: Hedera Testnet • Live data from RONDA smart contracts
           </div>
           <div>
             Token amounts dynamically formatted from payment token contracts

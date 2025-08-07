@@ -2,34 +2,43 @@
 pragma solidity ^0.8.20;
 
 import {Script} from "forge-std/Script.sol";
-import {RondaFactory} from "../src/RondaFactory.sol";
+import {console} from "forge-std/console.sol";
+import {RondaFactorySimple} from "../src/RondaFactorySimple.sol";
 import {RondaSBT} from "../src/RondaSBT.sol";
 
 contract DeployHedera is Script {
     function run() external {
         // Read deployer private key from environment
-        uint256 deployerPrivateKey = vm.envUint("HEDERA_PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        
+        console.log("Starting Hedera Testnet Deployment...");
+        console.log("Deploying: RondaSBT + RondaFactorySimple (Simple, Non-Upgradeable)");
         
         // Start broadcasting transactions
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy RondaSBT (penalty token)
+        // Step 1: Deploy RondaSBT
+        console.log("Deploying RondaSBT...");
         RondaSBT penaltyToken = new RondaSBT();
+        console.log("RondaSBT deployed at:", address(penaltyToken));
 
-        // Deploy RondaFactory
-        RondaFactory factory = new RondaFactory();
+        // Step 2: Deploy RondaFactorySimple
+        console.log("Deploying RondaFactorySimple...");
+        RondaFactorySimple factory = new RondaFactorySimple(address(penaltyToken));
+        console.log("RondaFactorySimple deployed at:", address(factory));
 
-        // Initialize RondaFactory
-        factory.initialize(address(penaltyToken));
-
-        // Transfer ownership of RondaSBT to factory
+        // Step 3: Transfer ownership
+        console.log("Transferring RondaSBT ownership to factory...");
         penaltyToken.transferOwnership(address(factory));
 
         vm.stopBroadcast();
 
-        // Log deployed addresses
-        console.log("Deployed contracts:");
-        console.log("RondaSBT:", address(penaltyToken));
-        console.log("RondaFactory:", address(factory));
+        // Deployment Summary
+        console.log("DEPLOYMENT COMPLETE!");
+        console.log("=============================================================");
+        console.log("CONTRACT ADDRESSES:");
+        console.log("RondaSBT (Penalty Token):", address(penaltyToken));
+        console.log("RondaFactorySimple:", address(factory));
+        console.log("=============================================================");
     }
 } 

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 
 import { ISuccessResult } from '@worldcoin/idkit';
+import { logger } from '@/lib/logger';
 import { useAccount } from 'wagmi';
 import { useWagmiReady } from './use-wagmi-ready';
 
@@ -43,7 +44,7 @@ export function useVerification() {
         const savedSession = localStorage.getItem('ronda-worldid-session');
         if (savedSession) {
           const sessionData = JSON.parse(savedSession);
-          console.log('🔄 Loaded World ID session from storage:', sessionData);
+          logger.log('🔄 Loaded World ID session from storage:', sessionData);
           
           setVerificationState(prev => ({
             ...prev,
@@ -54,14 +55,14 @@ export function useVerification() {
           }));
         }
       } catch (error) {
-        console.error('❌ Error loading World ID session:', error);
+        logger.error('❌ Error loading World ID session:', error);
       }
     }
   }, []);
 
   const handleWorldIdSuccess = useCallback((proof: ISuccessResult) => {
-    console.log('✅ World ID verification successful!');
-    console.log('📋 World ID Proof Details:', {
+    logger.log('✅ World ID verification successful!');
+    logger.log('📋 World ID Proof Details:', {
       merkle_root: proof.merkle_root,
       nullifier_hash: proof.nullifier_hash,
       proof: proof.proof,
@@ -79,9 +80,9 @@ export function useVerification() {
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('ronda-worldid-session', JSON.stringify(sessionData));
-        console.log('💾 World ID session saved to storage');
+        logger.log('💾 World ID session saved to storage');
       } catch (error) {
-        console.error('❌ Error saving World ID session:', error);
+        logger.error('❌ Error saving World ID session:', error);
       }
     }
 
@@ -94,7 +95,7 @@ export function useVerification() {
         isReadyToJoin: true && prev.isWalletConnected,
       };
       
-      console.log('🔄 Updated verification state:', {
+      logger.log('🔄 Updated verification state:', {
         isWorldIdVerified: newState.isWorldIdVerified,
         isWalletConnected: newState.isWalletConnected,
         isReadyToJoin: newState.isReadyToJoin,
@@ -106,7 +107,7 @@ export function useVerification() {
   }, []);
 
   const handleWalletConnect = useCallback((walletAddress: string) => {
-    console.log('🔗 Wallet connected:', walletAddress);
+    logger.log('🔗 Wallet connected:', walletAddress);
     
     setVerificationState(prev => {
       const newState = {
@@ -116,7 +117,7 @@ export function useVerification() {
         isReadyToJoin: prev.isWorldIdVerified && true,
       };
       
-      console.log('🔄 Updated verification state after wallet connect:', {
+      logger.log('🔄 Updated verification state after wallet connect:', {
         walletAddress: newState.walletAddress,
         isWorldIdVerified: newState.isWorldIdVerified,
         isWalletConnected: newState.isWalletConnected,
@@ -128,7 +129,7 @@ export function useVerification() {
   }, []);
 
   const handleWalletDisconnect = useCallback(() => {
-    console.log('🔌 Wallet disconnected');
+    logger.log('🔌 Wallet disconnected');
     
     setVerificationState(prev => ({
       ...prev,
@@ -149,14 +150,14 @@ export function useVerification() {
   }, [effectiveIsConnected, effectiveAddress, handleWalletConnect, handleWalletDisconnect, isWagmiReady]);
 
   const resetVerification = useCallback(() => {
-    console.log('🔄 Resetting verification state');
+    logger.log('🔄 Resetting verification state');
     
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('ronda-worldid-session');
-        console.log('🗑️ World ID session cleared from storage');
+        logger.log('🗑️ World ID session cleared from storage');
       } catch (error) {
-        console.error('❌ Error clearing World ID session:', error);
+        logger.error('❌ Error clearing World ID session:', error);
       }
     }
 

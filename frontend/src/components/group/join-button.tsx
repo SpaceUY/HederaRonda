@@ -21,7 +21,6 @@ export function JoinButton({ group, isDisabled, onRefetch }: JoinButtonProps) {
   const { verificationState } = useVerification();
   const [hasJoined, setHasJoined] = useState(false);
 
-  // Check if user is already a member of this RONDA and if they can make deposits
   const { isMember, canMakeDeposits, isRondaRunning, rondaState, isCheckingMembership } = useRondaDeposit({
     roscaContractAddress: group.address,
     contractData: {
@@ -37,7 +36,6 @@ export function JoinButton({ group, isDisabled, onRefetch }: JoinButtonProps) {
     onRefetch?.();
   };
 
-  // If user is already a member, show contribute button (only if RONDA is running)
   if (hasJoined || isMember) {
     return (
       <div className="space-y-3">
@@ -46,7 +44,6 @@ export function JoinButton({ group, isDisabled, onRefetch }: JoinButtonProps) {
           {isMember ? 'Already a Member!' : 'Successfully Joined!'}
         </Button>
         
-        {/* Show contribute button only if RONDA is running */}
         {canMakeDeposits ? (
           <Button asChild className="w-full" variant="default">
             <Link href={`/group/${group.address}/contribute`}>
@@ -83,7 +80,6 @@ export function JoinButton({ group, isDisabled, onRefetch }: JoinButtonProps) {
 
   return (
     <div className="space-y-6">
-      {/* Verification Status */}
       <VerificationStatus
         worldIdVerified={verificationState.isWorldIdVerified}
         walletConnected={verificationState.isWalletConnected}
@@ -91,7 +87,6 @@ export function JoinButton({ group, isDisabled, onRefetch }: JoinButtonProps) {
         showJoinButton={false}
       />
 
-      {/* Join Button */}
       {verificationState.isReadyToJoin ? (
         <JoinRoscaButton
           group={group}

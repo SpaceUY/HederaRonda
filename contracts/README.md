@@ -1,185 +1,175 @@
-# Ronda Smart Contract
+# RONDA Smart Contracts
 
-A decentralized savings circle (Ronda) implementation using Solidity and Chainlink VRF for fair participant selection.
+A decentralized savings circle (Ronda) implementation using Solidity smart contracts for transparent and automated community savings groups.
 
 ## Overview
 
-Ronda is a smart contract that implements a traditional savings circle (also known as a "Ronda" or "Tanda") on the blockchain. It uses Chainlink VRF (Verifiable Random Function) to ensure fair and transparent participant selection.
+Ronda is a smart contract that implements a traditional savings circle (also known as a "Ronda" or "Tanda") on the blockchain. It provides a simple, secure, and transparent way for communities to organize rotating savings groups.
 
-### Key Features
+## Features
 
-- Decentralized savings circle implementation
-- Fair participant selection using Chainlink VRF
-- Interest distribution mechanism
-- Entry fee system
-- Milestone-based deposits
-- Emergency abort functionality
+- **Simple Architecture**: Non-upgradeable contracts for maximum transparency
+- **Automated Payments**: Smart contracts handle all transactions
+- **Penalty System**: SBT tokens track missed payments
+- **Factory Pattern**: Easy deployment of new Ronda groups
+- **Transparent Operations**: All data publicly verifiable on-chain
 
-## Technical Requirements
+## Technology Stack
 
-- Solidity ^0.8.20
-- Foundry
-- Chainlink VRF v2
-- OpenZeppelin Contracts
+- **Solidity**: ^0.8.20
+- **Foundry**: For development, testing, and deployment
+- **OpenZeppelin**: For secure contract implementations
+- **Hedera Network**: For fast, cost-effective transactions
 
-## Installation
+## Getting Started
 
-1. Clone the repository:
+### Prerequisites
+
+- [Foundry](https://getfoundry.sh/)
+- Node.js (for frontend integration)
+- Hedera Testnet account
+
+### Installation
+
 ```bash
-git clone https://github.com/yourusername/chainlinkronda.git
-cd chainlinkronda
-```
-
-2. Install dependencies:
-```bash
+git clone https://github.com/yourusername/ronda.git
+cd ronda/contracts
 forge install
 ```
 
-3. Set up environment variables:
-```bash
-cp .env.example .env
-# Edit .env with your values
-```
-
-## Development
-
-### Compile Contracts
-
-```bash
-forge build
-```
-
-### Run Tests
+### Testing
 
 ```bash
 forge test
 ```
 
-### Run Tests with Coverage
+### Deployment
 
+1. Set up your environment variables:
 ```bash
-forge coverage
+cp env.example .env
 ```
 
-## Setup
-
-1. Set up environment variables:
+2. Configure your deployment parameters in `.env`:
 ```bash
-cp .env.example .env
+PRIVATE_KEY=your_hedera_private_key
+HEDERA_TESTNET_RPC_URL=https://testnet.hashio.io/api
 ```
 
-
-2. Deploy the contracts:
+3. Deploy the contracts:
 ```bash
-# Deploy RondaFactory
-forge script script/DeployRondaFactory.s.sol:DeployRondaFactory --rpc-url $RPC_URL --broadcast --verify
-
-# Update .env with the deployed RondaFactory address
-# RONDA_FACTORY_ADDRESS=<deployed_address>
-# PENALTY_TOKEN_ADDRESS=<deployed_address>
-
-# Deploy RondaInstance
-forge script script/DeployRondaInstance.s.sol:DeployRondaInstance --rpc-url $RPC_URL --broadcast --verify
-
+forge script script/DeployHedera.s.sol --rpc-url https://testnet.hashio.io/api --broadcast --gas-price 1000000000 --legacy
 ```
-
-## Deployment
-
-### Local Testing with Anvil
-
-1. Start Anvil in a separate terminal:
-```bash
-anvil
-```
-
-
-2. Deploy the contracts in sequence:
-
-```bash
-# Deploy MockToken
-forge script script/DeployMockToken.s.sol:DeployMockToken --fork-url http://localhost:8545 --broadcast
-
-# Update .env with the deployed MockToken address
-# PAYMENT_TOKEN_ADDRESS=<deployed_address>
-
-# Deploy RondaFactory
-forge script script/DeployRondaFactory.s.sol:DeployRondaFactory --fork-url http://localhost:8545 --broadcast
-
-# Update .env with the deployed RondaFactory address
-# RONDA_FACTORY_ADDRESS=<deployed_address>
-# PENALTY_TOKEN_ADDRESS=<deployed_address>
-
-# Deploy a Ronda Instance
-forge script script/DeployRondaInstance.s.sol:DeployRondaInstance --fork-url http://localhost:8545 --broadcast
-```
-
-### Required Parameters
-
-When deploying, you'll need to provide:
-- `participantCount`: Number of participants in the Ronda
-- `milestoneCount`: Number of milestones/deposits
-- `monthlyDeposit`: Amount to deposit per milestone
-- `entryFee`: One-time entry fee
-- `interestDistribution`: Array of interest rates per milestone (must sum to 0)
-- `paymentToken`: ERC20 token address for payments
-- Chainlink VRF parameters:
-  - `vrfCoordinator`: Chainlink VRF Coordinator address
-  - `subscriptionId`: Your Chainlink VRF subscription ID
-  - `keyHash`: Chainlink VRF key hash
-  - `callbackGasLimit`: Gas limit for VRF callback
 
 ## Contract Architecture
 
-### Main Contract: Ronda.sol
+### Core Contracts
 
-The main contract implements the core Ronda functionality:
+- **RondaSBT.sol**: Soulbound token for penalty tracking
+- **Ronda.sol**: Main savings circle contract
+- **RondaFactorySimple.sol**: Factory contract for deploying new Rondas
 
-- Participant management
-- Deposit handling
-- Interest distribution
-- Random participant selection
-- State management
+### Key Features
 
-### Key Functions
+#### Simple Ronda Structure
+- Participants contribute monthly to a shared pool
+- Payouts are distributed in a predefined order
+- Smart contracts automate all transactions
+- No complex auction or lottery systems
 
-- `joinRonda()`: Join the Ronda (requires entry fee)
-- `deposit(uint256 milestone)`: Make a deposit for a specific milestone
-- `deliverRonda(uint256 milestone)`: Distribute funds for a milestone
-- `abortRonda()`: Emergency function to abort the Ronda
+#### Payment Management
+- Monthly contributions from all participants
+- Automated milestone tracking
+- Penalty system for missed payments
+- Transparent payment history
 
-## Testing
+#### Penalty System
+- SBT tokens for tracking missed payments
+- Non-transferable penalty tokens
+- Reputation-based access control
 
-Run all test doing:
+## Configuration
 
-bash
-```
-forge test
-```
+### Network Configuration
+- **Hedera Testnet**: Chain ID 296
+- **RPC URL**: https://testnet.hashio.io/api
+- **Explorer**: https://hashscan.io/testnet
+- **Gas Price**: 1 Gwei (1000000000 wei)
 
-The test suite includes:
-- Basic joining functionality
-- Deposit and delivery mechanisms
-- Interest distribution validation
-- Emergency abort functionality
-- VRF integration tests
+### Contract Addresses
+After deployment, update the frontend configuration:
+- `frontend/src/lib/contracts.ts` - Contract addresses
+- `frontend/src/constants/network-config.ts` - Network configuration
 
 ## Security Considerations
 
-- Entry fee is required only upon joining
-- Interest distribution must sum to zero
-- Emergency abort function for safety
-- VRF for fair participant selection
-- Reentrancy protection
-- Access control for critical functions
+- **Simple Architecture**: Non-upgradeable contracts for maximum trust
+- **Access Control**: Owner-only functions for sensitive operations
+- **Reentrancy Protection**: OpenZeppelin's ReentrancyGuard
+- **Comprehensive Testing**: Full test coverage with Foundry
 
-## License
+## Testing
 
-MIT
+The test suite covers:
+- Contract deployment and initialization
+- Participant joining and payment flows
+- Penalty and reputation systems
+- Edge cases and error conditions
+
+Run tests with:
+```bash
+forge test
+```
+
+## Deployment Scripts
+
+- `DeployHedera.s.sol`: Main deployment script for Hedera
+- `TestCreateRonda.s.sol`: Test script for creating Rondas
+- `DeployMockToken.s.sol`: Mock token deployment for testing
+
+## Script Usage
+
+### Deploy to Hedera Testnet
+```bash
+forge script script/DeployHedera.s.sol --rpc-url https://testnet.hashio.io/api --broadcast --gas-price 1000000000 --legacy
+```
+
+### Test Ronda Creation
+```bash
+FACTORY_ADDRESS=0x1ec9d4d0a2da2dee54652d46ad3d93c87c8397d8 forge script script/TestCreateRonda.s.sol --rpc-url https://testnet.hashio.io/api --broadcast --gas-price 1000000000 --legacy
+```
+
+## Contract Functions
+
+### RondaFactorySimple
+- `createRonda()`: Create a new Ronda group
+- `getRondaCount()`: Get total number of Rondas
+- `getRondaInstances()`: Get all Ronda addresses
+- `deliverRonda()`: Deliver milestone payments (owner only)
+- `mintPenalty()`: Mint penalty tokens (owner only)
+- `removePenalty()`: Remove penalty tokens (owner only)
+
+### Ronda
+- `joinRonda()`: Join a Ronda group
+- `currentState()`: Get current Ronda state
+- `participantCount()`: Get number of participants
+- `monthlyDeposit()`: Get monthly deposit amount
+- `joinedParticipants()`: Get list of participants
+
+### RondaSBT
+- `mintPenalty()`: Mint penalty token (whitelisted only)
+- `burnPenalty()`: Burn penalty token (whitelisted only)
+- `balanceOf()`: Check penalty balance
+- `addToWhitelist()`: Add address to whitelist (owner only)
 
 ## Contributing
 
 1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a new Pull Request 
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details 
