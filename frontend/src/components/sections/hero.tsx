@@ -1,9 +1,9 @@
 'use client';
 
 import { ArrowRight, Play } from 'lucide-react';
-import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import { useVerification } from '@/hooks/use-verification';
 
 export function HeroSection() {
@@ -67,7 +67,7 @@ export function HeroSection() {
             <div className="flex flex-wrap justify-center items-center gap-8 opacity-60">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-primary/20 rounded-lg flex items-center justify-center">
-                  <span className="text-primary font-bold text-xs">CL</span>
+                  <span className="text-primary font-bold text-xs">HB</span>
                 </div>
                 <span className="text-sm font-medium">Hedera</span>
               </div>

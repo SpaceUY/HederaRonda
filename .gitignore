@@ -80,3 +80,6 @@ TEST*.xml
 *.mov
 *.wmv
 
+
+# Local Netlify folder
+.netlify

@@ -1,18 +1,18 @@
 'use client';
 
 import { ChevronRight, Home } from 'lucide-react';
-import Link from 'next/link';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Group } from '@/local-data';
+import Link from 'next/link';
 
 interface BreadcrumbHeaderProps {
   group: Group;
 }
 
 export function BreadcrumbHeader({ group }: BreadcrumbHeaderProps) {
-  const availableSpots = group.maxMembers - group.memberCount;
+  const availableSpots = group.maxParticipants - group.participants.length;
 
   return (
     <div className="pt-16 bg-muted/30 border-b border-border">
@@ -42,12 +42,12 @@ export function BreadcrumbHeader({ group }: BreadcrumbHeaderProps) {
             <Badge 
               variant="outline" 
               className={
-                group.status === 'recruiting' 
+                group.state === 'Open' 
                   ? 'bg-warning/10 text-warning border-warning/20'
                   : 'bg-success/10 text-success border-success/20'
               }
             >
-              {group.status === 'recruiting' ? 'Open for new members' : 'Active'}
+              {group.state === 'Open' ? 'Open for new members' : 'Active'}
             </Badge>
             <span className="text-sm text-muted-foreground">
               {availableSpots} spot{availableSpots !== 1 ? 's' : ''} remaining

@@ -1,35 +1,35 @@
-import { Users, DollarSign, Calendar, ArrowRight, Eye, TrendingUp } from 'lucide-react';
-import Link from 'next/link';
+import { ArrowRight, Calendar, DollarSign, Eye, TrendingUp, Users } from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import Link from 'next/link';
 import { mockGroups } from '@/local-data';
 
 export function ExploreSection() {
   // Get a few featured groups for the landing page
   const featuredGroups = mockGroups.slice(0, 3);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'recruiting':
+  const getStatusColor = (state: string) => {
+    switch (state) {
+      case 'Open':
         return 'bg-warning/10 text-warning border-warning/20';
-      case 'active':
+      case 'Running':
         return 'bg-success/10 text-success border-success/20';
       default:
         return 'bg-muted text-muted-foreground border-border';
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'recruiting':
+  const getStatusText = (state: string) => {
+    switch (state) {
+      case 'Open':
         return 'Open to Join';
-      case 'active':
+      case 'Running':
         return 'Active';
       default:
-        return status;
+        return state;
     }
   };
 
@@ -57,9 +57,9 @@ export function ExploreSection() {
                     </h3>
                     <Badge 
                       variant="outline" 
-                      className={getStatusColor(group.status)}
+                      className={getStatusColor(group.state)}
                     >
-                      {getStatusText(group.status)}
+                      {getStatusText(group.state)}
                     </Badge>
                   </div>
                 </div>
@@ -74,12 +74,12 @@ export function ExploreSection() {
                       <span>Members</span>
                     </div>
                     <div className="font-semibold">
-                      {group.memberCount}/{group.maxMembers}
+                      {group.participants.length}/{group.maxParticipants}
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div 
                         className="bg-primary rounded-full h-2 transition-all duration-300"
-                        style={{ width: `${(group.memberCount / group.maxMembers) * 100}%` }}
+                        style={{ width: `${(group.participants.length / group.maxParticipants) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -90,7 +90,7 @@ export function ExploreSection() {
                       <span>Monthly</span>
                     </div>
                     <div className="font-semibold">
-                      {formatCurrency(group.monthlyContribution, group.currency)}
+                      {formatCurrency(group.monthlyDepositFormatted, group.currency || 'HBAR')}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       per member
@@ -106,14 +106,14 @@ export function ExploreSection() {
                       <span>Next round</span>
                     </div>
                     <span className="font-medium">
-                      {formatDate(group.nextRoundStart, { month: 'short', day: 'numeric' })}
+                      {formatDate(group.startDate, { month: 'short', day: 'numeric' })}
                     </span>
                   </div>
                   
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Total payout</span>
                     <span className="font-medium text-success">
-                      {formatCurrency(group.monthlyContribution * group.maxMembers, group.currency)}
+                      {formatCurrency(group.monthlyDepositFormatted * group.maxParticipants, group.currency || 'HBAR')}
                     </span>
                   </div>
                 </div>
@@ -122,7 +122,7 @@ export function ExploreSection() {
                 <div className="mt-auto pt-4">
                   <Button 
                     className="w-full group-hover:bg-primary/90 transition-colors"
-                    disabled={group.status === 'completed'}
+                    disabled={group.state === 'Finalized'}
                     asChild
                   >
                     <Link href={`/group/${group.id}`}>

@@ -4,26 +4,13 @@ export interface NetworkConfig {
   rondaFactoryAddress: string;
   penaltyTokenAddress: string;
   mainTokenAddress: string;
+  rondaSenderAddress?: string;
   isTestnet: boolean;
 }
 
 export interface NetworkConfigs {
   [chainId: number]: NetworkConfig;
 }
-
-//  Hedera Network Configuration working factory address
-// export const NETWORKS: NetworkConfigs = {
-//   // Hedera Testnet
-//   296: {
-//     name: 'Hedera Testnet',
-//     chainId: 296,
-//     rondaFactoryAddress: '0xf1dB7Ea49c20Ecf95e6ab8F57889769F4C34b0fb',
-//     penaltyTokenAddress: '0x8550C69142c56De276cC351000F91Eb36Ed2Be56',
-//     mainTokenAddress: '0x01Ac06943d2B8327a7845235Ef034741eC1Da352', // Use native HBAR
-//     rondaSenderAddress: '0xc8824bf9e61075bfe9856e39ac0131dab2007611',
-//     isTestnet: true,
-//   },
-// };
 
 // Hedera Network Configuration
 export const NETWORKS: NetworkConfigs = {

@@ -161,18 +161,18 @@ export function useRondaContracts(): UseRondaContractsReturn {
             paymentToken,
             joinedParticipantsPromise,
           ] = await Promise.all([
-            retryWithBackoff(() => rondaContract.currentState()),
-            retryWithBackoff(() => rondaContract.participantCount()),
-            retryWithBackoff(() => rondaContract.milestoneCount()),
-            retryWithBackoff(() => rondaContract.monthlyDeposit()),
-            retryWithBackoff(() => rondaContract.entryFee()),
-            retryWithBackoff(() => rondaContract.paymentToken()),
+            retryWithBackoff(() => rondaContract!.currentState()),
+            retryWithBackoff(() => rondaContract!.participantCount()),
+            retryWithBackoff(() => rondaContract!.milestoneCount()),
+            retryWithBackoff(() => rondaContract!.monthlyDeposit()),
+            retryWithBackoff(() => rondaContract!.entryFee()),
+            retryWithBackoff(() => rondaContract!.paymentToken()),
             retryWithBackoff(async () => {
               const participants: string[] = [];
               let i = 0;
               while (true) {
                 try {
-                  const participant = await rondaContract.joinedParticipants(i);
+                  const participant = await rondaContract!.joinedParticipants(i);
                   if (!participant || participant === ethers.ZeroAddress) {
                     break;
                   }
@@ -214,11 +214,11 @@ export function useRondaContracts(): UseRondaContractsReturn {
 
                 const [symbol, decimals] = await Promise.all([
                   retryWithBackoff(async () => {
-                    const sym = await tokenContract.symbol();
+                    const sym = await tokenContract!.symbol();
                     return sym || 'USDC';
                   }),
                   retryWithBackoff(async () => {
-                    const dec = await tokenContract.decimals();
+                    const dec = await tokenContract!.decimals();
                     return Number(dec) || 6;
                   }),
                 ]);
@@ -244,7 +244,7 @@ export function useRondaContracts(): UseRondaContractsReturn {
             const milestoneCountNum = Number(milestoneCount);
             for (let i = 0; i < milestoneCountNum; i++) {
               try {
-                const milestone = await rondaContract.milestones(i);
+                const milestone = await rondaContract!.milestones(i);
                 if (!milestone) {
                   break;
                 }
