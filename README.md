@@ -153,8 +153,8 @@ All contracts are deployed and verified on Hedera Testnet (Chain ID: 296)
 
 - **GitHub**: https://github.com/SpaceUY/HederaRonda
 - **Demo**: https://ronda-web3-hedera.netlify.app
+- **Pitch Deck**: https://drive.google.com/file/d/1gOtQYUdEtgMBCrxVtkdI2V-Al-Y2j_-t/view?usp=sharing
 - **Documentation**: [This README]
-- **Pitch Deck**: [Google Drive Link]
 
 ---
 
