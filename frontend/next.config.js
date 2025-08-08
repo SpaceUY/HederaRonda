@@ -14,8 +14,8 @@ const nextConfig = {
   },
   reactStrictMode: true,
   swcMinify: false,
-  // Disable static generation for pages that use client-side features
-  output: 'standalone',
+  // Only use standalone output for production builds
+  ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
   // Fix for Coinbase Wallet CORS policy
   async headers() {
     return [
