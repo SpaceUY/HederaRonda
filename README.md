@@ -165,5 +165,3 @@ All contracts are deployed and verified on Hedera Testnet (Chain ID: 296)
 ---
 
 **RONDA Web3** - Democratizing access to community-based finance on Hedera 🚀
-
-*Built for the Hedera Hackathon 2024*
