@@ -148,12 +148,6 @@ All contracts are deployed and verified on Hedera Testnet (Chain ID: 296)
 - **Global Scalability**: Borderless financial services
 - **Transparency**: All operations visible on blockchain
 
-## 🤝 Team
-
-- **Lead Developer**: [Your Name]
-- **Smart Contract Engineer**: [Team Member]
-- **Frontend Developer**: [Team Member]
-- **UI/UX Designer**: [Team Member]
 
 ## 📞 Contact & Links
 
